@@ -50,7 +50,8 @@
             const username = document.getElementById('createUsername').value.trim() || 'Ev Sahibi';
             
             try {
-                const res = await fetch('/api/create-room');
+                // Username'i query parametresi olarak gönder
+                const res = await fetch(`/api/create-room?username=${encodeURIComponent(username)}`);
                 const data = await res.json();
                 
                 createdRoomId = data.roomId;

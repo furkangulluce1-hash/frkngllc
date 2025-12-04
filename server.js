@@ -40,6 +40,7 @@ app.get('/room/:roomId', (req, res) => {
 // API: Oda oluştur
 app.get('/api/create-room', (req, res) => {
     const roomId = uuidv4().substring(0, 8);
+    const hostUsername = req.query.username || 'Ev Sahibi'; // Admin panelinden gelen username
     rooms.set(roomId, {
         id: roomId,
         videoUrl: '',
@@ -47,7 +48,8 @@ app.get('/api/create-room', (req, res) => {
         currentTime: 0,
         users: [],
         messages: [],
-        createdAt: new Date()
+        createdAt: new Date(),
+        hostUsername: hostUsername // Ev sahibi username'i kaydet
     });
     res.json({ roomId });
 });
@@ -68,7 +70,7 @@ io.on('connection', (socket) => {
 
     // Odaya katıl
     socket.on('join-room', ({ roomId, username }) => {
-        // Oda yoksa oluştur
+        // Oda yoksa oluştur (normal kullanıcılar için)
         if (!rooms.has(roomId)) {
             rooms.set(roomId, {
                 id: roomId,
@@ -77,7 +79,8 @@ io.on('connection', (socket) => {
                 currentTime: 0,
                 users: [],
                 messages: [],
-                createdAt: new Date()
+                createdAt: new Date(),
+                hostUsername: null // Ev sahibi yok
             });
         }
 
@@ -89,12 +92,24 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // İlk katılan ev sahibi olur
-        const isHost = room.users.length === 0;
+        // Ev sahibi kontrolü
+        const finalUsername = username || `Misafir${Math.floor(Math.random() * 1000)}`;
+        let isHost = false;
+        
+        // Eğer hostUsername belirlenmişse, o kullanıcı ev sahibi
+        if (room.hostUsername) {
+            isHost = room.hostUsername === finalUsername;
+        } else {
+            // Eğer hostUsername yoksa ve ilk kullanıcıysa, ev sahibi olur
+            isHost = room.users.length === 0;
+            if (isHost) {
+                room.hostUsername = finalUsername; // İlk kullanıcıyı ev sahibi olarak kaydet
+            }
+        }
         
         const user = {
             visitorId: socket.id,
-            username: username || `Misafir${Math.floor(Math.random() * 1000)}`,
+            username: finalUsername,
             joinedAt: new Date(),
             isHost: isHost
         };
