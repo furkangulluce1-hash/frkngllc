@@ -114,8 +114,8 @@ io.on('connection', (socket) => {
         // Son mesajları gönder
         socket.emit('chat-history', room.messages.slice(-50));
 
-        // Kullanıcı bilgilerini gönder
-        socket.emit('room-users', { users: room.users });
+        // Yeni katılan kullanıcıya ev sahibi bilgisini gönder
+        socket.emit('your-host-status', { isHost: user.isHost });
 
         console.log(`${user.username} odaya katıldı: ${roomId}`);
     });

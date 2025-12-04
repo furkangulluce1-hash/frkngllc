@@ -35,7 +35,7 @@
                 </div>
             </div>
 
-            <div class="video-controls" id="videoControls" style="display: none;">
+            <div class="video-controls hidden" id="videoControls">
                 <input type="text" id="videoUrl" placeholder="M3U8/HLS video linki yapıştır..." class="video-input">
                 <button class="btn btn-primary" id="loadVideo">▶️ Yükle</button>
             </div>
@@ -93,11 +93,19 @@
         // Odaya katıl
         socket.emit('join-room', { roomId, username });
 
-        // Sayfa yüklendiğinde ev sahibi kontrolü yap
-        socket.on('connect', () => {
-            setTimeout(() => {
-                socket.emit('get-room-users', { roomId });
-            }, 500);
+        // Ev sahibi durumu al
+        socket.on('your-host-status', (data) => {
+            isHost = data.isHost;
+            const videoControls = document.getElementById('videoControls');
+            if (videoControls) {
+                if (isHost) {
+                    videoControls.classList.remove('hidden');
+                    videoControls.style.display = 'flex';
+                } else {
+                    videoControls.classList.add('hidden');
+                    videoControls.style.display = 'none';
+                }
+            }
         });
 
         // Oda dolu
@@ -111,36 +119,28 @@
             socket.emit('get-room-users', { roomId });
         }
 
-        // Oda kullanıcıları bilgisi
-        socket.on('room-users', (data) => {
-            const currentUser = data.users.find(u => u.username === username);
-            isHost = currentUser ? currentUser.isHost : false;
-            
-            // Video yükleme bölümünü göster/gizle
-            const videoControls = document.getElementById('videoControls');
-            if (isHost) {
-                videoControls.classList.remove('hidden');
-            } else {
-                videoControls.classList.add('hidden');
-            }
-        });
-
         // Kullanıcı katıldı
         socket.on('user-joined', (data) => {
-            // Ev sahibi kontrolü
+            // Ev sahibi kontrolü - HER KULLANICI İÇİN
             const currentUser = data.users.find(u => u.username === username);
             isHost = currentUser ? currentUser.isHost : false;
             
             // Video yükleme bölümünü göster/gizle
             const videoControls = document.getElementById('videoControls');
-            if (isHost) {
-                videoControls.classList.remove('hidden');
-            } else {
-                videoControls.classList.add('hidden');
+            if (videoControls) {
+                if (isHost) {
+                    videoControls.classList.remove('hidden');
+                    videoControls.style.display = 'flex';
+                } else {
+                    videoControls.classList.add('hidden');
+                    videoControls.style.display = 'none';
+                }
             }
             
             updateUserList(data.users);
-            if (data.videoUrl) {
+            
+            // Sadece yeni katılan kullanıcı için video yükle
+            if (data.user.username === username && data.videoUrl) {
                 document.getElementById('videoUrl').value = data.videoUrl;
                 loadHLSVideo(data.videoUrl);
                 
@@ -152,6 +152,7 @@
                     }
                 }, 1000);
             }
+            
             addSystemMessage(`${data.user.username} odaya katıldı! 🎉`);
         });
 
@@ -202,6 +203,10 @@
 
         // Video yükle
         document.getElementById('loadVideo').addEventListener('click', () => {
+            if (!isHost) {
+                alert('Sadece ev sahibi video yükleyebilir!');
+                return;
+            }
             const url = document.getElementById('videoUrl').value.trim();
             if (!url) {
                 alert('Video URL girin!');
