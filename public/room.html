@@ -35,7 +35,7 @@
                 </div>
             </div>
 
-            <div class="video-controls">
+            <div class="video-controls" id="videoControls" style="display: none;">
                 <input type="text" id="videoUrl" placeholder="M3U8/HLS video linki yapıştır..." class="video-input">
                 <button class="btn btn-primary" id="loadVideo">▶️ Yükle</button>
             </div>
@@ -79,6 +79,7 @@
         const videoOverlay = document.getElementById('videoOverlay');
         let hls = null;
         let isSyncing = false;
+        let isHost = false;
 
         // Oda kodunu göster
         document.getElementById('roomCode').textContent = roomId;
@@ -100,6 +101,18 @@
 
         // Kullanıcı katıldı
         socket.on('user-joined', (data) => {
+            // Ev sahibi kontrolü
+            const currentUser = data.users.find(u => u.username === username);
+            isHost = currentUser ? currentUser.isHost : false;
+            
+            // Video yükleme bölümünü göster/gizle
+            const videoControls = document.querySelector('.video-controls');
+            if (isHost) {
+                videoControls.style.display = 'flex';
+            } else {
+                videoControls.style.display = 'none';
+            }
+            
             updateUserList(data.users);
             if (data.videoUrl) {
                 document.getElementById('videoUrl').value = data.videoUrl;
@@ -237,7 +250,8 @@
             const list = document.getElementById('userList');
             list.innerHTML = users.map(u => `
                 <li class="${u.username === username ? 'me' : ''}">
-                    ${u.username === username ? '👤' : '👥'} ${u.username}
+                    ${u.isHost ? '👑' : (u.username === username ? '👤' : '👥')} ${u.username}
+                    ${u.isHost ? '<span style="color: #00ff87; font-size: 10px;">(Ev Sahibi)</span>' : ''}
                 </li>
             `).join('');
             document.getElementById('userCount').textContent = users.length;

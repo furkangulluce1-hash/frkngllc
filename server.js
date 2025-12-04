@@ -86,16 +86,21 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // İlk katılan ev sahibi olur
+        const isHost = room.users.length === 0;
+        
         const user = {
             visitorId: socket.id,
             username: username || `Misafir${Math.floor(Math.random() * 1000)}`,
-            joinedAt: new Date()
+            joinedAt: new Date(),
+            isHost: isHost
         };
 
         room.users.push(user);
         socket.join(roomId);
         socket.roomId = roomId;
         socket.username = user.username;
+        socket.isHost = isHost;
 
         // Odadaki herkese bildir
         io.to(roomId).emit('user-joined', {
@@ -112,10 +117,10 @@ io.on('connection', (socket) => {
         console.log(`${user.username} odaya katıldı: ${roomId}`);
     });
 
-    // Video URL değişti
+    // Video URL değişti (sadece ev sahibi)
     socket.on('set-video', ({ roomId, videoUrl }) => {
         const room = rooms.get(roomId);
-        if (room) {
+        if (room && socket.isHost) {
             room.videoUrl = videoUrl;
             room.currentTime = 0;
             room.isPlaying = false;
