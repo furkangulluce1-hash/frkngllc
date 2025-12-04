@@ -19,6 +19,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Odalar veritabanı (bellekte)
 const rooms = new Map();
 
+// Peer ID'leri sakla (kullanıcı ID -> peer ID)
+const userPeerIds = new Map();
+
 // Ana sayfa
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -101,6 +104,7 @@ io.on('connection', (socket) => {
         socket.roomId = roomId;
         socket.username = user.username;
         socket.isHost = isHost;
+        socket.userId = user.visitorId;
 
         // Odadaki herkese bildir
         io.to(roomId).emit('user-joined', {
@@ -190,12 +194,47 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Peer ID kaydet
+    socket.on('peer-id', ({ roomId, peerId, username }) => {
+        if (socket.userId) {
+            userPeerIds.set(socket.userId, peerId);
+            
+            // Odadaki diğer kullanıcılara bildir
+            socket.to(roomId).emit('user-peer-id', {
+                peerId,
+                username
+            });
+        }
+    });
+
+    // Peer ID'leri al
+    socket.on('get-peer-ids', ({ roomId }) => {
+        const room = rooms.get(roomId);
+        if (room) {
+            const peerIds = room.users
+                .filter(u => u.visitorId !== socket.id)
+                .map(u => ({
+                    peerId: userPeerIds.get(u.visitorId),
+                    username: u.username
+                }))
+                .filter(p => p.peerId && p.peerId !== null && p.peerId !== undefined);
+            
+            socket.emit('peer-ids', { peerIds });
+        }
+    });
+
     // Bağlantı koptu
     socket.on('disconnect', () => {
         if (socket.roomId) {
             const room = rooms.get(socket.roomId);
             if (room) {
                 room.users = room.users.filter(u => u.visitorId !== socket.id);
+                
+                // Peer ID'yi temizle
+                if (socket.userId) {
+                    userPeerIds.delete(socket.userId);
+                }
+                
                 io.to(socket.roomId).emit('user-left', {
                     username: socket.username,
                     users: room.users

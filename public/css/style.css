@@ -398,6 +398,72 @@ footer {
     margin-bottom: 10px;
 }
 
+/* Sesli Konuşma Kontrolleri */
+.voice-controls {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-voice {
+    width: 100%;
+    padding: 12px 15px;
+    background: linear-gradient(90deg, #00ff87, #60efff);
+    border: none;
+    border-radius: 10px;
+    color: #1a1a2e;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+}
+
+.btn-voice:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(0, 255, 135, 0.4);
+}
+
+.btn-voice:active {
+    transform: translateY(0);
+}
+
+.mic-icon {
+    font-size: 18px;
+}
+
+.voice-status {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #8892b0;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff4444;
+    display: inline-block;
+}
+
+.status-dot.active {
+    background: #00ff87;
+    box-shadow: 0 0 10px rgba(0, 255, 135, 0.5);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
 #userList {
     list-style: none;
     display: flex;

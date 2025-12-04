@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 </head>
 <body class="room-page">
     <div class="room-container">
@@ -58,6 +59,18 @@
             <div class="users-panel">
                 <h3>👥 Odadakiler</h3>
                 <ul id="userList"></ul>
+                
+                <!-- Sesli Konuşma Kontrolü -->
+                <div class="voice-controls">
+                    <button class="btn-voice" id="toggleMic">
+                        <span class="mic-icon">🎤</span>
+                        <span class="mic-text">Mikrofon Aç</span>
+                    </button>
+                    <div class="voice-status" id="voiceStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Ses Kapalı</span>
+                    </div>
+                </div>
             </div>
 
             <div class="chat-panel">
@@ -80,6 +93,12 @@
         let hls = null;
         let isSyncing = false;
         let isHost = false;
+
+        // Sesli konuşma değişkenleri
+        let peer = null;
+        let myStream = null;
+        let peers = {};
+        let isMicOn = false;
 
         // Oda kodunu göster
         document.getElementById('roomCode').textContent = roomId;
@@ -350,6 +369,134 @@
             btn.addEventListener('click', () => {
                 socket.emit('reaction', { roomId, emoji: btn.dataset.emoji });
             });
+        });
+
+        // ========== SESLİ KONUŞMA ==========
+        
+        // PeerJS başlat
+        function initPeer() {
+            peer = new Peer({
+                host: 'peerjs-server.herokuapp.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
+
+            peer.on('open', (id) => {
+                socket.emit('peer-id', { roomId, peerId: id, username });
+            });
+
+            peer.on('call', (call) => {
+                call.answer(myStream);
+                const audio = new Audio();
+                call.on('stream', (remoteStream) => {
+                    audio.srcObject = remoteStream;
+                    audio.play();
+                });
+                peers[call.peer] = call;
+            });
+
+            peer.on('error', (err) => {
+                console.error('PeerJS hatası:', err);
+            });
+        }
+
+        // Mikrofon aç/kapat
+        document.getElementById('toggleMic').addEventListener('click', async () => {
+            if (!isMicOn) {
+                try {
+                    // Önce peer'i başlat
+                    if (!peer) {
+                        initPeer();
+                        await new Promise(resolve => {
+                            if (peer) {
+                                peer.on('open', resolve);
+                            } else {
+                                setTimeout(resolve, 1000);
+                            }
+                        });
+                    }
+                    
+                    // Sonra mikrofonu aç
+                    myStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: true,
+                        video: false 
+                    });
+                    
+                    isMicOn = true;
+                    document.querySelector('.mic-icon').textContent = '🔇';
+                    document.querySelector('.mic-text').textContent = 'Mikrofon Kapat';
+                    document.getElementById('voiceStatus').innerHTML = 
+                        '<span class="status-dot active"></span><span class="status-text">Ses Açık</span>';
+                    
+                    // Mevcut kullanıcılara bağlan
+                    socket.emit('get-peer-ids', { roomId });
+                } catch (err) {
+                    alert('Mikrofon erişimi reddedildi! Tarayıcı ayarlarından izin verin.');
+                    console.error('Mikrofon hatası:', err);
+                }
+            } else {
+                // Mikrofonu kapat
+                if (myStream) {
+                    myStream.getTracks().forEach(track => track.stop());
+                    myStream = null;
+                }
+                
+                // Tüm bağlantıları kapat
+                Object.values(peers).forEach(call => call.close());
+                peers = {};
+                
+                if (peer) {
+                    peer.destroy();
+                    peer = null;
+                }
+                
+                isMicOn = false;
+                document.querySelector('.mic-icon').textContent = '🎤';
+                document.querySelector('.mic-text').textContent = 'Mikrofon Aç';
+                document.getElementById('voiceStatus').innerHTML = 
+                    '<span class="status-dot"></span><span class="status-text">Ses Kapalı</span>';
+            }
+        });
+
+        // Diğer kullanıcıların peer ID'lerini al
+        socket.on('peer-ids', (data) => {
+            if (!data.peerIds) return;
+            data.peerIds.forEach(({ peerId, username: otherUsername }) => {
+                if (peerId && peerId !== peer?.id && myStream && peer && !peers[peerId]) {
+                    const call = peer.call(peerId, myStream);
+                    const audio = new Audio();
+                    call.on('stream', (remoteStream) => {
+                        audio.srcObject = remoteStream;
+                        audio.play().catch(err => console.error('Ses çalma hatası:', err));
+                    });
+                    peers[peerId] = call;
+                }
+            });
+        });
+
+        // Yeni kullanıcı peer ID'si geldiğinde
+        socket.on('user-peer-id', (data) => {
+            if (data.peerId && data.peerId !== peer?.id && myStream && peer && !peers[data.peerId]) {
+                const call = peer.call(data.peerId, myStream);
+                const audio = new Audio();
+                call.on('stream', (remoteStream) => {
+                    audio.srcObject = remoteStream;
+                    audio.play().catch(err => console.error('Ses çalma hatası:', err));
+                });
+                peers[data.peerId] = call;
+            }
+        });
+
+        // Kullanıcı ayrıldığında bağlantıyı kapat
+        socket.on('user-left', (data) => {
+            // Peer bağlantılarını temizle (peer ID eşleştirmesi yapılabilir)
         });
     </script>
 </body>
