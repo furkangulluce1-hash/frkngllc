@@ -326,6 +326,10 @@ footer {
     margin-top: 15px;
 }
 
+.video-controls.hidden {
+    display: none !important;
+}
+
 .video-input {
     flex: 1;
     padding: 12px 15px;

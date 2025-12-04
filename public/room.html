@@ -93,10 +93,36 @@
         // Odaya katıl
         socket.emit('join-room', { roomId, username });
 
+        // Sayfa yüklendiğinde ev sahibi kontrolü yap
+        socket.on('connect', () => {
+            setTimeout(() => {
+                socket.emit('get-room-users', { roomId });
+            }, 500);
+        });
+
         // Oda dolu
         socket.on('room-full', () => {
             alert('Oda dolu! Maksimum 7 kişi.');
             window.location.href = '/';
+        });
+
+        // Ev sahibi kontrolü fonksiyonu
+        function checkHostStatus() {
+            socket.emit('get-room-users', { roomId });
+        }
+
+        // Oda kullanıcıları bilgisi
+        socket.on('room-users', (data) => {
+            const currentUser = data.users.find(u => u.username === username);
+            isHost = currentUser ? currentUser.isHost : false;
+            
+            // Video yükleme bölümünü göster/gizle
+            const videoControls = document.getElementById('videoControls');
+            if (isHost) {
+                videoControls.classList.remove('hidden');
+            } else {
+                videoControls.classList.add('hidden');
+            }
         });
 
         // Kullanıcı katıldı
@@ -106,11 +132,11 @@
             isHost = currentUser ? currentUser.isHost : false;
             
             // Video yükleme bölümünü göster/gizle
-            const videoControls = document.querySelector('.video-controls');
+            const videoControls = document.getElementById('videoControls');
             if (isHost) {
-                videoControls.style.display = 'flex';
+                videoControls.classList.remove('hidden');
             } else {
-                videoControls.style.display = 'none';
+                videoControls.classList.add('hidden');
             }
             
             updateUserList(data.users);

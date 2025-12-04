@@ -114,7 +114,18 @@ io.on('connection', (socket) => {
         // Son mesajları gönder
         socket.emit('chat-history', room.messages.slice(-50));
 
+        // Kullanıcı bilgilerini gönder
+        socket.emit('room-users', { users: room.users });
+
         console.log(`${user.username} odaya katıldı: ${roomId}`);
+    });
+
+    // Oda kullanıcıları bilgisi iste
+    socket.on('get-room-users', ({ roomId }) => {
+        const room = rooms.get(roomId);
+        if (room) {
+            socket.emit('room-users', { users: room.users });
+        }
     });
 
     // Video URL değişti (sadece ev sahibi)
