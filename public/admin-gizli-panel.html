@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 Admin - Oda Oluştur</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="hero">
+            <div class="logo">🔐</div>
+            <h1>Admin Panel</h1>
+            <p class="tagline">Gizli Oda Oluşturma Sayfası</p>
+        </div>
+
+        <div class="card main-card">
+            <h2 style="text-align: center; color: #00ff87; margin-bottom: 25px;">🎉 Yeni Oda Oluştur</h2>
+
+            <div class="form-group">
+                <label>👤 Kullanıcı Adın</label>
+                <input type="text" id="createUsername" placeholder="Örn: Furkan" maxlength="20" value="Ev Sahibi">
+            </div>
+            <button class="btn btn-primary" id="createRoom">
+                🎬 Oda Oluştur
+            </button>
+
+            <div id="roomInfo" style="display: none; margin-top: 25px; padding: 20px; background: rgba(0,255,135,0.1); border-radius: 10px;">
+                <p style="color: #00ff87; font-weight: bold; margin-bottom: 10px;">✅ Oda Oluşturuldu!</p>
+                <p style="color: #8892b0;">Oda Kodu:</p>
+                <p style="font-size: 24px; color: #fff; font-family: monospace;" id="newRoomCode"></p>
+                <p style="color: #8892b0; margin-top: 10px;">Paylaşım Linki:</p>
+                <input type="text" id="shareLink" readonly style="width: 100%; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid #333; border-radius: 5px; color: #fff; margin-top: 5px;">
+                <button class="btn btn-secondary" id="copyLink" style="margin-top: 15px;">📋 Linki Kopyala</button>
+                <button class="btn btn-primary" id="goToRoom" style="margin-top: 10px;">🚀 Odaya Git</button>
+            </div>
+        </div>
+
+        <footer>
+            <p>🔒 Bu sayfa gizlidir - sadece sen biliyorsun!</p>
+        </footer>
+    </div>
+
+    <script>
+        let createdRoomId = null;
+
+        // Oda oluştur
+        document.getElementById('createRoom').addEventListener('click', async () => {
+            const username = document.getElementById('createUsername').value.trim() || 'Ev Sahibi';
+            
+            try {
+                const res = await fetch('/api/create-room');
+                const data = await res.json();
+                
+                createdRoomId = data.roomId;
+                localStorage.setItem('username', username);
+                
+                document.getElementById('newRoomCode').textContent = data.roomId;
+                document.getElementById('shareLink').value = window.location.origin + '/room/' + data.roomId;
+                document.getElementById('roomInfo').style.display = 'block';
+                document.getElementById('createRoom').textContent = '🔄 Yeni Oda Oluştur';
+            } catch (err) {
+                alert('Oda oluşturulamadı!');
+            }
+        });
+
+        // Linki kopyala
+        document.getElementById('copyLink').addEventListener('click', () => {
+            const link = document.getElementById('shareLink');
+            link.select();
+            document.execCommand('copy');
+            alert('Link kopyalandı! Arkadaşlarına gönder 🎉');
+        });
+
+        // Odaya git
+        document.getElementById('goToRoom').addEventListener('click', () => {
+            if (createdRoomId) {
+                window.location.href = '/room/' + createdRoomId;
+            }
+        });
+    </script>
+</body>
+</html>
+

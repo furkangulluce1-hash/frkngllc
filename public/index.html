@@ -16,34 +16,19 @@
         </div>
 
         <div class="card main-card">
-            <div class="tabs">
-                <button class="tab active" data-tab="create">🎉 Oda Oluştur</button>
-                <button class="tab" data-tab="join">🚪 Odaya Katıl</button>
-            </div>
+            <h2 style="text-align: center; color: #60efff; margin-bottom: 25px;">🚪 Odaya Katıl</h2>
 
-            <div class="tab-content active" id="create">
-                <div class="form-group">
-                    <label>👤 Kullanıcı Adın</label>
-                    <input type="text" id="createUsername" placeholder="Örn: Furkan" maxlength="20">
-                </div>
-                <button class="btn btn-primary" id="createRoom">
-                    🎬 Oda Oluştur
-                </button>
+            <div class="form-group">
+                <label>👤 Kullanıcı Adın</label>
+                <input type="text" id="joinUsername" placeholder="Örn: Ahmet" maxlength="20">
             </div>
-
-            <div class="tab-content" id="join">
-                <div class="form-group">
-                    <label>👤 Kullanıcı Adın</label>
-                    <input type="text" id="joinUsername" placeholder="Örn: Ahmet" maxlength="20">
-                </div>
-                <div class="form-group">
-                    <label>🔑 Oda Kodu</label>
-                    <input type="text" id="roomCode" placeholder="Örn: a1b2c3d4" maxlength="8">
-                </div>
-                <button class="btn btn-secondary" id="joinRoom">
-                    🚪 Odaya Katıl
-                </button>
+            <div class="form-group">
+                <label>🔑 Oda Kodu</label>
+                <input type="text" id="roomCode" placeholder="Örn: a1b2c3d4" maxlength="8">
             </div>
+            <button class="btn btn-primary" id="joinRoom">
+                🚪 Odaya Katıl
+            </button>
         </div>
 
         <div class="features">
@@ -75,31 +60,6 @@
     </div>
 
     <script>
-        // Tab değiştirme
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById(tab.dataset.tab).classList.add('active');
-            });
-        });
-
-        // Oda oluştur
-        document.getElementById('createRoom').addEventListener('click', async () => {
-            const username = document.getElementById('createUsername').value.trim() || 'Ev Sahibi';
-            
-            try {
-                const res = await fetch('/api/create-room');
-                const data = await res.json();
-                
-                localStorage.setItem('username', username);
-                window.location.href = `/room/${data.roomId}`;
-            } catch (err) {
-                alert('Oda oluşturulamadı!');
-            }
-        });
-
         // Odaya katıl
         document.getElementById('joinRoom').addEventListener('click', async () => {
             const username = document.getElementById('joinUsername').value.trim() || 'Misafir';
@@ -138,4 +98,3 @@
     </script>
 </body>
 </html>
-

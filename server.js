@@ -24,6 +24,11 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Gizli admin paneli - oda oluşturma
+app.get('/admin-gizli-panel', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin-gizli-panel.html'));
+});
+
 // Oda sayfası
 app.get('/room/:roomId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'room.html'));
