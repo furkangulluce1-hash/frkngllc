@@ -28,6 +28,9 @@
                 <video id="videoPlayer" controls playsinline>
                     Tarayıcınız video oynatmayı desteklemiyor.
                 </video>
+                <div id="guestControlOverlay" class="guest-control-overlay" style="display: none;">
+                    <p>⏸️ Video kontrolü sadece ev sahibine aittir</p>
+                </div>
                 <div class="reactions-container" id="reactions"></div>
                 <div class="video-overlay" id="videoOverlay">
                     <div class="overlay-content">
@@ -116,6 +119,8 @@
         socket.on('your-host-status', (data) => {
             isHost = data.isHost;
             const videoControls = document.getElementById('videoControls');
+            const guestOverlay = document.getElementById('guestControlOverlay');
+            
             if (videoControls) {
                 if (isHost) {
                     videoControls.classList.remove('hidden');
@@ -123,6 +128,17 @@
                 } else {
                     videoControls.classList.add('hidden');
                     videoControls.style.display = 'none';
+                }
+            }
+            
+            // Video kontrollerini ev sahibi olmayanlar için devre dışı bırak
+            if (video) {
+                if (isHost) {
+                    video.controls = true;
+                    if (guestOverlay) guestOverlay.style.display = 'none';
+                } else {
+                    video.controls = false;
+                    if (guestOverlay) guestOverlay.style.display = 'flex';
                 }
             }
         });
@@ -146,6 +162,8 @@
             
             // Video yükleme bölümünü göster/gizle
             const videoControls = document.getElementById('videoControls');
+            const guestOverlay = document.getElementById('guestControlOverlay');
+            
             if (videoControls) {
                 if (isHost) {
                     videoControls.classList.remove('hidden');
@@ -153,6 +171,17 @@
                 } else {
                     videoControls.classList.add('hidden');
                     videoControls.style.display = 'none';
+                }
+            }
+            
+            // Video kontrollerini ev sahibi olmayanlar için devre dışı bırak
+            if (video) {
+                if (isHost) {
+                    video.controls = true;
+                    if (guestOverlay) guestOverlay.style.display = 'none';
+                } else {
+                    video.controls = false;
+                    if (guestOverlay) guestOverlay.style.display = 'flex';
                 }
             }
             
@@ -268,19 +297,22 @@
             }
         }
 
-        // Video olayları
+        // Video olayları (sadece ev sahibi kontrol edebilir)
         video.addEventListener('play', () => {
-            if (!isSyncing) {
+            if (!isSyncing && isHost) {
                 socket.emit('play-pause', { 
                     roomId, 
                     isPlaying: true, 
                     currentTime: video.currentTime 
                 });
+            } else if (!isHost) {
+                // Misafir oynatmaya çalışırsa durdur
+                video.pause();
             }
         });
 
         video.addEventListener('pause', () => {
-            if (!isSyncing) {
+            if (!isSyncing && isHost) {
                 socket.emit('play-pause', { 
                     roomId, 
                     isPlaying: false, 
@@ -290,8 +322,18 @@
         });
 
         video.addEventListener('seeked', () => {
-            if (!isSyncing) {
+            if (!isSyncing && isHost) {
                 socket.emit('seek', { roomId, currentTime: video.currentTime });
+            } else if (!isHost) {
+                // Misafir sarmaya çalışırsa geri al
+                socket.emit('get-current-time', { roomId });
+            }
+        });
+
+        // Misafirler için mevcut zamanı al
+        socket.on('current-time', (data) => {
+            if (!isHost && !isSyncing) {
+                video.currentTime = data.currentTime;
             }
         });
 

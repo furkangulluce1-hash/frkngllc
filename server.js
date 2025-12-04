@@ -158,25 +158,33 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Video oynat/duraklat
+    // Video oynat/duraklat (sadece ev sahibi)
     socket.on('play-pause', ({ roomId, isPlaying, currentTime }) => {
         const room = rooms.get(roomId);
-        if (room) {
+        if (room && socket.isHost) {
             room.isPlaying = isPlaying;
             room.currentTime = currentTime;
             socket.to(roomId).emit('sync-video', { isPlaying, currentTime });
         }
     });
 
-    // Video zaman senkronizasyonu
+    // Video zaman senkronizasyonu (sadece ev sahibi)
     socket.on('seek', ({ roomId, currentTime }) => {
         const room = rooms.get(roomId);
-        if (room) {
+        if (room && socket.isHost) {
             room.currentTime = currentTime;
             socket.to(roomId).emit('sync-video', { 
                 isPlaying: room.isPlaying, 
                 currentTime 
             });
+        }
+    });
+
+    // Mevcut zamanı al (misafirler için)
+    socket.on('get-current-time', ({ roomId }) => {
+        const room = rooms.get(roomId);
+        if (room) {
+            socket.emit('current-time', { currentTime: room.currentTime });
         }
     });
 
