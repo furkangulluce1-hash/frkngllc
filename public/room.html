@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 Maç Odası</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="room-page">
+    <div class="room-container">
+        <!-- Sol: Video Oynatıcı -->
+        <div class="video-section">
+            <div class="video-header">
+                <div class="room-info">
+                    <span class="room-code">🔑 Oda: <strong id="roomCode"></strong></span>
+                    <button class="btn-small" id="copyCode">📋 Kopyala</button>
+                </div>
+                <div class="user-count">
+                    <span id="userCount">0</span>/7 👥
+                </div>
+            </div>
+
+            <div class="video-wrapper">
+                <video id="videoPlayer" controls playsinline>
+                    Tarayıcınız video oynatmayı desteklemiyor.
+                </video>
+                <div class="reactions-container" id="reactions"></div>
+                <div class="video-overlay" id="videoOverlay">
+                    <div class="overlay-content">
+                        <p>📺 Video URL'si girin</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="video-controls">
+                <input type="text" id="videoUrl" placeholder="M3U8/HLS video linki yapıştır..." class="video-input">
+                <button class="btn btn-primary" id="loadVideo">▶️ Yükle</button>
+            </div>
+
+            <!-- Emoji Tepkileri -->
+            <div class="emoji-bar">
+                <button class="emoji-btn" data-emoji="⚽">⚽</button>
+                <button class="emoji-btn" data-emoji="🎉">🎉</button>
+                <button class="emoji-btn" data-emoji="🔥">🔥</button>
+                <button class="emoji-btn" data-emoji="😱">😱</button>
+                <button class="emoji-btn" data-emoji="👏">👏</button>
+                <button class="emoji-btn" data-emoji="😭">😭</button>
+                <button class="emoji-btn" data-emoji="🤬">🤬</button>
+                <button class="emoji-btn" data-emoji="❤️">❤️</button>
+            </div>
+        </div>
+
+        <!-- Sağ: Chat ve Kullanıcılar -->
+        <div class="chat-section">
+            <div class="users-panel">
+                <h3>👥 Odadakiler</h3>
+                <ul id="userList"></ul>
+            </div>
+
+            <div class="chat-panel">
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-input-wrapper">
+                    <input type="text" id="chatInput" placeholder="Mesaj yaz..." maxlength="200">
+                    <button class="btn-send" id="sendMessage">📤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const roomId = window.location.pathname.split('/').pop();
+        const username = localStorage.getItem('username') || 'Misafir' + Math.floor(Math.random() * 1000);
+        const socket = io();
+
+        const video = document.getElementById('videoPlayer');
+        const videoOverlay = document.getElementById('videoOverlay');
+        let hls = null;
+        let isSyncing = false;
+
+        // Oda kodunu göster
+        document.getElementById('roomCode').textContent = roomId;
+
+        // Kopyala butonu
+        document.getElementById('copyCode').addEventListener('click', () => {
+            navigator.clipboard.writeText(window.location.href);
+            alert('Link kopyalandı! Arkadaşlarına gönder 🎉');
+        });
+
+        // Odaya katıl
+        socket.emit('join-room', { roomId, username });
+
+        // Oda dolu
+        socket.on('room-full', () => {
+            alert('Oda dolu! Maksimum 7 kişi.');
+            window.location.href = '/';
+        });
+
+        // Kullanıcı katıldı
+        socket.on('user-joined', (data) => {
+            updateUserList(data.users);
+            if (data.videoUrl) {
+                document.getElementById('videoUrl').value = data.videoUrl;
+                loadHLSVideo(data.videoUrl);
+                
+                // Senkronize ol
+                setTimeout(() => {
+                    video.currentTime = data.currentTime;
+                    if (data.isPlaying) {
+                        video.play().catch(() => {});
+                    }
+                }, 1000);
+            }
+            addSystemMessage(`${data.user.username} odaya katıldı! 🎉`);
+        });
+
+        // Kullanıcı ayrıldı
+        socket.on('user-left', (data) => {
+            updateUserList(data.users);
+            addSystemMessage(`${data.username} ayrıldı 👋`);
+        });
+
+        // Video değişti
+        socket.on('video-changed', (data) => {
+            document.getElementById('videoUrl').value = data.videoUrl;
+            loadHLSVideo(data.videoUrl);
+        });
+
+        // Video senkronizasyonu
+        socket.on('sync-video', (data) => {
+            isSyncing = true;
+            
+            const timeDiff = Math.abs(video.currentTime - data.currentTime);
+            if (timeDiff > 2) {
+                video.currentTime = data.currentTime;
+            }
+
+            if (data.isPlaying && video.paused) {
+                video.play().catch(() => {});
+            } else if (!data.isPlaying && !video.paused) {
+                video.pause();
+            }
+
+            setTimeout(() => { isSyncing = false; }, 500);
+        });
+
+        // Chat geçmişi
+        socket.on('chat-history', (messages) => {
+            messages.forEach(msg => addChatMessage(msg));
+        });
+
+        // Yeni mesaj
+        socket.on('new-message', (msg) => {
+            addChatMessage(msg);
+        });
+
+        // Emoji tepkisi
+        socket.on('show-reaction', (data) => {
+            showReaction(data.emoji);
+        });
+
+        // Video yükle
+        document.getElementById('loadVideo').addEventListener('click', () => {
+            const url = document.getElementById('videoUrl').value.trim();
+            if (!url) {
+                alert('Video URL girin!');
+                return;
+            }
+            socket.emit('set-video', { roomId, videoUrl: url });
+            loadHLSVideo(url);
+        });
+
+        // HLS Video yükle
+        function loadHLSVideo(url) {
+            videoOverlay.style.display = 'none';
+
+            if (hls) {
+                hls.destroy();
+            }
+
+            if (url.includes('.m3u8')) {
+                if (Hls.isSupported()) {
+                    hls = new Hls({
+                        enableWorker: true,
+                        lowLatencyMode: true
+                    });
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        console.log('HLS yüklendi');
+                    });
+                    hls.on(Hls.Events.ERROR, (event, data) => {
+                        console.error('HLS Hatası:', data);
+                        if (data.fatal) {
+                            alert('Video yüklenemedi! URL\'yi kontrol edin.');
+                        }
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = url;
+                }
+            } else {
+                video.src = url;
+            }
+        }
+
+        // Video olayları
+        video.addEventListener('play', () => {
+            if (!isSyncing) {
+                socket.emit('play-pause', { 
+                    roomId, 
+                    isPlaying: true, 
+                    currentTime: video.currentTime 
+                });
+            }
+        });
+
+        video.addEventListener('pause', () => {
+            if (!isSyncing) {
+                socket.emit('play-pause', { 
+                    roomId, 
+                    isPlaying: false, 
+                    currentTime: video.currentTime 
+                });
+            }
+        });
+
+        video.addEventListener('seeked', () => {
+            if (!isSyncing) {
+                socket.emit('seek', { roomId, currentTime: video.currentTime });
+            }
+        });
+
+        // Kullanıcı listesi güncelle
+        function updateUserList(users) {
+            const list = document.getElementById('userList');
+            list.innerHTML = users.map(u => `
+                <li class="${u.username === username ? 'me' : ''}">
+                    ${u.username === username ? '👤' : '👥'} ${u.username}
+                </li>
+            `).join('');
+            document.getElementById('userCount').textContent = users.length;
+        }
+
+        // Chat mesajı ekle
+        function addChatMessage(msg) {
+            const container = document.getElementById('chatMessages');
+            const isMe = msg.username === username;
+            const div = document.createElement('div');
+            div.className = `chat-message ${isMe ? 'me' : ''}`;
+            div.innerHTML = `
+                <span class="chat-user">${msg.username}</span>
+                <span class="chat-text">${escapeHtml(msg.message)}</span>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Sistem mesajı
+        function addSystemMessage(text) {
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = 'chat-message system';
+            div.innerHTML = `<span class="chat-text">${text}</span>`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Emoji tepkisi göster
+        function showReaction(emoji) {
+            const container = document.getElementById('reactions');
+            const span = document.createElement('span');
+            span.className = 'floating-emoji';
+            span.textContent = emoji;
+            span.style.left = Math.random() * 80 + 10 + '%';
+            container.appendChild(span);
+            setTimeout(() => span.remove(), 2000);
+        }
+
+        // HTML escape
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Mesaj gönder
+        document.getElementById('sendMessage').addEventListener('click', sendChatMessage);
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChatMessage();
+        });
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (message) {
+                socket.emit('chat-message', { roomId, message });
+                input.value = '';
+            }
+        }
+
+        // Emoji butonları
+        document.querySelectorAll('.emoji-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                socket.emit('reaction', { roomId, emoji: btn.dataset.emoji });
+            });
+        });
+    </script>
+</body>
+</html>
+
