@@ -251,6 +251,10 @@ io.on('connection', (socket) => {
         if (socket.roomId) {
             const room = rooms.get(socket.roomId);
             if (room) {
+                // Çıkan kullanıcıyı bul
+                const leavingUser = room.users.find(u => u.visitorId === socket.id);
+                const wasHost = leavingUser && leavingUser.isHost;
+                
                 room.users = room.users.filter(u => u.visitorId !== socket.id);
                 
                 // Peer ID'yi temizle
@@ -258,13 +262,29 @@ io.on('connection', (socket) => {
                     userPeerIds.delete(socket.userId);
                 }
                 
-                io.to(socket.roomId).emit('user-left', {
-                    username: socket.username,
-                    users: room.users
-                });
+                // Eğer ev sahibi çıktıysa, odayı kapat
+                if (wasHost && leavingUser && room.hostUsername === leavingUser.username) {
+                    // Tüm kullanıcılara ev sahibinin ayrıldığını bildir
+                    io.to(socket.roomId).emit('host-left', {
+                        message: 'Ev sahibi odadan ayrıldı. Oda kapanıyor...'
+                    });
+                    
+                    // Odayı kapat ve tüm kullanıcıları çıkar
+                    setTimeout(() => {
+                        io.to(socket.roomId).emit('room-closed');
+                        rooms.delete(socket.roomId);
+                        console.log(`Oda kapatıldı (ev sahibi ayrıldı): ${socket.roomId}`);
+                    }, 2000); // 2 saniye sonra odayı kapat
+                } else {
+                    // Normal kullanıcı çıktı
+                    io.to(socket.roomId).emit('user-left', {
+                        username: socket.username,
+                        users: room.users
+                    });
+                }
 
                 // Oda boşsa sil
-                if (room.users.length === 0) {
+                if (room.users.length === 0 && !wasHost) {
                     setTimeout(() => {
                         const currentRoom = rooms.get(socket.roomId);
                         if (currentRoom && currentRoom.users.length === 0) {

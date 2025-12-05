@@ -265,6 +265,20 @@
             addSystemMessage(`${data.username} ayrıldı 👋`);
         });
 
+        // Ev sahibi ayrıldı
+        socket.on('host-left', (data) => {
+            addSystemMessage('⚠️ ' + data.message);
+            alert('⚠️ Ev sahibi odadan ayrıldı!\n\nOda kapanıyor...');
+        });
+
+        // Oda kapatıldı
+        socket.on('room-closed', () => {
+            alert('Oda kapatıldı. Ana sayfaya yönlendiriliyorsunuz...');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        });
+
         // Video değişti
         socket.on('video-changed', (data) => {
             document.getElementById('videoUrl').value = data.videoUrl;
