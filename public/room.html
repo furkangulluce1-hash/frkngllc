@@ -120,11 +120,11 @@
         // Odaya katıl
         socket.emit('join-room', { roomId, username });
 
-        // Chat input'un her zaman görünür olduğundan emin ol (optimize edilmiş)
+        // Chat input ve messages görünürlüğünü kontrol et (optimize edilmiş)
         let lastCheckTime = 0;
-        const CHECK_INTERVAL = 1000; // 1 saniyede bir kontrol et
+        const CHECK_INTERVAL = 2000; // 2 saniyede bir kontrol et
         
-        const ensureChatInputVisible = () => {
+        const ensureChatVisible = () => {
             const now = Date.now();
             if (now - lastCheckTime < CHECK_INTERVAL) {
                 return; // Çok sık kontrol etme
@@ -132,46 +132,53 @@
             lastCheckTime = now;
             
             try {
+                // Chat input kontrolü
                 const chatInputWrapper = document.getElementById('chatInputWrapper');
-                if (!chatInputWrapper) return;
-                
-                // Sadece görünmezse düzelt
-                const computedStyle = window.getComputedStyle(chatInputWrapper);
-                if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden' || computedStyle.opacity === '0') {
-                    chatInputWrapper.style.display = 'flex';
-                    chatInputWrapper.style.visibility = 'visible';
-                    chatInputWrapper.style.opacity = '1';
-                }
-                
-                // Mobilde fixed position
-                if (window.innerWidth <= 900) {
-                    if (computedStyle.position !== 'fixed') {
+                if (chatInputWrapper) {
+                    const computedStyle = window.getComputedStyle(chatInputWrapper);
+                    if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
+                        chatInputWrapper.style.display = 'flex';
+                        chatInputWrapper.style.visibility = 'visible';
+                    }
+                    
+                    // Mobilde fixed position
+                    if (window.innerWidth <= 900 && computedStyle.position !== 'fixed') {
                         chatInputWrapper.style.position = 'fixed';
                         chatInputWrapper.style.bottom = '0';
                         chatInputWrapper.style.left = '0';
                         chatInputWrapper.style.right = '0';
                         chatInputWrapper.style.width = '100%';
                         chatInputWrapper.style.zIndex = '9999';
-                        chatInputWrapper.style.background = '#161b22';
+                    }
+                }
+                
+                // Chat messages kontrolü
+                const chatMessages = document.getElementById('chatMessages');
+                if (chatMessages) {
+                    const computedStyle = window.getComputedStyle(chatMessages);
+                    if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
+                        chatMessages.style.display = 'block';
+                        chatMessages.style.visibility = 'visible';
+                        chatMessages.style.opacity = '1';
                     }
                 }
             } catch (err) {
-                console.error('Chat input görünürlük hatası:', err);
+                console.error('Chat görünürlük hatası:', err);
             }
         };
         
         // Sayfa yüklendiğinde bir kez çalıştır
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                setTimeout(ensureChatInputVisible, 500);
+                setTimeout(ensureChatVisible, 500);
             });
         } else {
-            setTimeout(ensureChatInputVisible, 500);
+            setTimeout(ensureChatVisible, 500);
         }
         
-        // Sadece mobilde ve daha az sıklıkla kontrol et
+        // Sadece mobilde kontrol et
         if (window.innerWidth <= 900) {
-            setInterval(ensureChatInputVisible, 3000); // 3 saniyede bir
+            setInterval(ensureChatVisible, 3000); // 3 saniyede bir
         }
 
         // Ev sahibi durumu al
@@ -614,6 +621,16 @@
         // Chat mesajı ekle
         function addChatMessage(msg) {
             const container = document.getElementById('chatMessages');
+            if (!container) {
+                console.error('Chat messages container bulunamadı!');
+                return;
+            }
+            
+            // Container'ın görünür olduğundan emin ol
+            container.style.display = 'block';
+            container.style.visibility = 'visible';
+            container.style.opacity = '1';
+            
             const isMe = msg.username === username;
             const div = document.createElement('div');
             div.className = `chat-message ${isMe ? 'me' : ''}`;
@@ -622,17 +639,32 @@
                 <span class="chat-text">${escapeHtml(msg.message)}</span>
             `;
             container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+            
+            // Scroll'u en alta al
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 100);
         }
 
         // Sistem mesajı
         function addSystemMessage(text) {
             const container = document.getElementById('chatMessages');
+            if (!container) return;
+            
+            // Container'ın görünür olduğundan emin ol
+            container.style.display = 'block';
+            container.style.visibility = 'visible';
+            container.style.opacity = '1';
+            
             const div = document.createElement('div');
             div.className = 'chat-message system';
             div.innerHTML = `<span class="chat-text">${text}</span>`;
             container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+            
+            // Scroll'u en alta al
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 100);
         }
 
         // Emoji tepkisi göster
