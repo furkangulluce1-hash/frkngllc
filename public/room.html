@@ -120,78 +120,58 @@
         // Odaya katıl
         socket.emit('join-room', { roomId, username });
 
-        // Chat input'un her zaman görünür olduğundan emin ol
+        // Chat input'un her zaman görünür olduğundan emin ol (optimize edilmiş)
+        let lastCheckTime = 0;
+        const CHECK_INTERVAL = 1000; // 1 saniyede bir kontrol et
+        
         const ensureChatInputVisible = () => {
+            const now = Date.now();
+            if (now - lastCheckTime < CHECK_INTERVAL) {
+                return; // Çok sık kontrol etme
+            }
+            lastCheckTime = now;
+            
             try {
                 const chatInputWrapper = document.getElementById('chatInputWrapper');
-                const chatInput = document.getElementById('chatInput');
-                const sendBtn = document.getElementById('sendMessage');
+                if (!chatInputWrapper) return;
                 
-                if (chatInputWrapper) {
-                    chatInputWrapper.style.cssText = `
-                        display: flex !important;
-                        visibility: visible !important;
-                        opacity: 1 !important;
-                        position: fixed !important;
-                        bottom: 0 !important;
-                        left: 0 !important;
-                        right: 0 !important;
-                        width: 100% !important;
-                        background: #161b22 !important;
-                        z-index: 9999 !important;
-                        padding: 15px !important;
-                    `;
+                // Sadece görünmezse düzelt
+                const computedStyle = window.getComputedStyle(chatInputWrapper);
+                if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden' || computedStyle.opacity === '0') {
+                    chatInputWrapper.style.display = 'flex';
+                    chatInputWrapper.style.visibility = 'visible';
+                    chatInputWrapper.style.opacity = '1';
                 }
                 
-                if (chatInput) {
-                    chatInput.style.cssText = `
-                        display: block !important;
-                        visibility: visible !important;
-                        opacity: 1 !important;
-                    `;
-                }
-                
-                if (sendBtn) {
-                    sendBtn.style.cssText = `
-                        display: block !important;
-                        visibility: visible !important;
-                        opacity: 1 !important;
-                    `;
+                // Mobilde fixed position
+                if (window.innerWidth <= 900) {
+                    if (computedStyle.position !== 'fixed') {
+                        chatInputWrapper.style.position = 'fixed';
+                        chatInputWrapper.style.bottom = '0';
+                        chatInputWrapper.style.left = '0';
+                        chatInputWrapper.style.right = '0';
+                        chatInputWrapper.style.width = '100%';
+                        chatInputWrapper.style.zIndex = '9999';
+                        chatInputWrapper.style.background = '#161b22';
+                    }
                 }
             } catch (err) {
                 console.error('Chat input görünürlük hatası:', err);
             }
         };
         
-        // Sayfa yüklendiğinde ve her render sonrası kontrol et
+        // Sayfa yüklendiğinde bir kez çalıştır
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', ensureChatInputVisible);
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(ensureChatInputVisible, 500);
+            });
         } else {
-            ensureChatInputVisible();
+            setTimeout(ensureChatInputVisible, 500);
         }
         
-        setTimeout(ensureChatInputVisible, 100);
-        setTimeout(ensureChatInputVisible, 500);
-        setTimeout(ensureChatInputVisible, 1000);
-        
-        // MutationObserver ile DOM değişikliklerini izle (hata kontrolü ile)
-        try {
-            const observer = new MutationObserver(() => {
-                ensureChatInputVisible();
-            });
-            
-            if (document.body) {
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true,
-                    attributeFilter: ['style', 'class']
-                });
-            }
-        } catch (err) {
-            console.error('MutationObserver hatası:', err);
-            // MutationObserver desteklenmiyorsa sadece interval kullan
-            setInterval(ensureChatInputVisible, 2000);
+        // Sadece mobilde ve daha az sıklıkla kontrol et
+        if (window.innerWidth <= 900) {
+            setInterval(ensureChatInputVisible, 3000); // 3 saniyede bir
         }
 
         // Ev sahibi durumu al
