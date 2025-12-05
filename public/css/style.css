@@ -591,10 +591,13 @@ footer {
 }
 
 .chat-input-wrapper {
-    display: flex;
+    display: flex !important;
     padding: 15px;
     gap: 10px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    z-index: 100;
+    background: #161b22;
 }
 
 .chat-input-wrapper input {
@@ -653,6 +656,12 @@ footer {
         height: 40vh;
         border-left: none;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .chat-input-wrapper {
+        position: sticky;
+        bottom: 0;
+        background: #161b22;
     }
 
     .video-section {

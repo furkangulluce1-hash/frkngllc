@@ -188,6 +188,18 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Video durumunu al (arka plandan döndüğünde)
+    socket.on('get-video-state', ({ roomId }) => {
+        const room = rooms.get(roomId);
+        if (room) {
+            socket.emit('video-state', {
+                isPlaying: room.isPlaying,
+                currentTime: room.currentTime,
+                videoUrl: room.videoUrl
+            });
+        }
+    });
+
     // Chat mesajı
     socket.on('chat-message', ({ roomId, message }) => {
         const room = rooms.get(roomId);

@@ -214,46 +214,55 @@
             
             updateUserList(data.users);
             
-            // Sadece yeni katılan kullanıcı için video yükle
-            if (data.user.username === username && data.videoUrl) {
-                document.getElementById('videoUrl').value = data.videoUrl;
-                loadHLSVideo(data.videoUrl);
-                
-                // Senkronize ol (video yüklendikten sonra)
-                const syncAfterLoad = () => {
-                    if (video.readyState >= 2) { // Yeterli veri yüklendi
-                        video.currentTime = data.currentTime;
-                        if (data.isPlaying) {
-                            if (!isHost) {
-                                video.muted = true;
-                            }
-                            video.play().then(() => {
-                                // Video oynatıldığında overlay'i gizle
+            // Yeni katılan kullanıcı için video yükle ve senkronize et
+            if (data.user.username === username) {
+                if (data.videoUrl) {
+                    document.getElementById('videoUrl').value = data.videoUrl;
+                    loadHLSVideo(data.videoUrl);
+                    
+                    // Senkronize ol (video yüklendikten sonra)
+                    const syncAfterLoad = () => {
+                        if (video.readyState >= 2) { // Yeterli veri yüklendi
+                            // Ev sahibinin kaldığı yerden devam et
+                            video.currentTime = data.currentTime;
+                            
+                            if (data.isPlaying) {
+                                if (!isHost) {
+                                    video.muted = true;
+                                }
+                                video.play().then(() => {
+                                    // Video oynatıldığında overlay'i gizle
+                                    if (!isHost) {
+                                        const guestOverlay = document.getElementById('guestControlOverlay');
+                                        if (guestOverlay) {
+                                            guestOverlay.style.display = 'none';
+                                        }
+                                    }
+                                }).catch(err => {
+                                    console.error('Video oynatma hatası:', err);
+                                });
+                            } else {
+                                // Video durduğunda overlay'i göster
                                 if (!isHost) {
                                     const guestOverlay = document.getElementById('guestControlOverlay');
                                     if (guestOverlay) {
-                                        guestOverlay.style.display = 'none';
+                                        guestOverlay.style.display = 'flex';
                                     }
                                 }
-                            }).catch(err => {
-                                console.error('Video oynatma hatası:', err);
-                            });
-                        } else {
-                            // Video durduğunda overlay'i göster
-                            if (!isHost) {
-                                const guestOverlay = document.getElementById('guestControlOverlay');
-                                if (guestOverlay) {
-                                    guestOverlay.style.display = 'flex';
-                                }
                             }
+                        } else {
+                            // Video henüz yüklenmediyse bekle
+                            video.addEventListener('loadeddata', syncAfterLoad, { once: true });
                         }
-                    } else {
-                        // Video henüz yüklenmediyse bekle
-                        video.addEventListener('loadeddata', syncAfterLoad, { once: true });
+                    };
+                    
+                    setTimeout(syncAfterLoad, 500);
+                } else {
+                    // Video yoksa mevcut durumu senkronize et
+                    if (data.currentTime > 0) {
+                        video.currentTime = data.currentTime;
                     }
-                };
-                
-                setTimeout(syncAfterLoad, 500);
+                }
             }
             
             addSystemMessage(`${data.user.username} odaya katıldı! 🎉`);
@@ -467,7 +476,7 @@
         let playPauseDebounce = null;
         
         video.addEventListener('play', () => {
-            if (isSyncing) return; // Senkronizasyon sırasında event'leri yok say
+            if (isSyncing || document.hidden) return; // Senkronizasyon veya arka planda event'leri yok say
             
             if (isHost) {
                 // Debounce: Çok sık event gönderme
@@ -482,8 +491,10 @@
                     });
                 }, 300);
             } else {
-                // Misafir oynatmaya çalışırsa durdur
-                video.pause();
+                // Misafir oynatmaya çalışırsa durdur (senkronizasyon değilse)
+                if (!isSyncing) {
+                    video.pause();
+                }
             }
         });
 
@@ -621,7 +632,7 @@
 
         // Video oynatıldığında overlay'i gizle (misafirler için)
         video.addEventListener('play', () => {
-            if (!isHost && !isSyncing) {
+            if (!isHost && !isSyncing && !document.hidden) {
                 const guestOverlay = document.getElementById('guestControlOverlay');
                 if (guestOverlay) {
                     guestOverlay.style.display = 'none';
@@ -631,7 +642,7 @@
 
         // Video durduğunda overlay'i göster (misafirler için)
         video.addEventListener('pause', () => {
-            if (!isHost && !isSyncing) {
+            if (!isHost && !isSyncing && !document.hidden) {
                 const guestOverlay = document.getElementById('guestControlOverlay');
                 if (guestOverlay) {
                     guestOverlay.style.display = 'flex';
@@ -902,6 +913,54 @@
         // Kullanıcı ayrıldığında bağlantıyı kapat
         socket.on('user-left', (data) => {
             // Peer bağlantılarını temizle (peer ID eşleştirmesi yapılabilir)
+        });
+
+        // ========== SAYFA GÖRÜNÜRLÜK API ==========
+        // Arka plana geçince video durdur, geri gelince devam ettir
+        let wasPlayingBeforeHidden = false;
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Sayfa arka plana gitti
+                wasPlayingBeforeHidden = !video.paused;
+                if (!video.paused && !isHost) {
+                    video.pause();
+                }
+            } else {
+                // Sayfa tekrar görünür oldu
+                if (wasPlayingBeforeHidden && !isHost) {
+                    // Ev sahibinin durumunu kontrol et
+                    socket.emit('get-video-state', { roomId });
+                }
+            }
+        });
+
+        // Video durumunu al (arka plandan döndüğünde)
+        socket.on('video-state', (data) => {
+            if (!isHost && !document.hidden) {
+                // Mevcut zamanı senkronize et
+                const timeDiff = Math.abs(video.currentTime - data.currentTime);
+                if (timeDiff > 1) {
+                    video.currentTime = data.currentTime;
+                }
+
+                // Eğer ev sahibi oynatıyorsa, otomatik oynat
+                if (data.isPlaying && video.paused) {
+                    if (!isHost) {
+                        video.muted = true;
+                    }
+                    video.play().then(() => {
+                        if (!isHost) {
+                            const guestOverlay = document.getElementById('guestControlOverlay');
+                            if (guestOverlay) {
+                                guestOverlay.style.display = 'none';
+                            }
+                        }
+                    }).catch(err => {
+                        console.error('Video oynatma hatası:', err);
+                    });
+                }
+            }
         });
     </script>
 </body>
