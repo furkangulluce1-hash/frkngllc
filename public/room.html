@@ -120,39 +120,60 @@
         // Odaya katıl
         socket.emit('join-room', { roomId, username });
 
-        // Chat görünürlüğünü zorla (mobil için)
+        // Chat görünürlüğünü zorla (mobil için - basit ve garantili)
         const forceChatVisible = () => {
+            if (window.innerWidth > 900) return; // Sadece mobilde
+            
             try {
                 const chatMessages = document.getElementById('chatMessages');
                 const chatPanel = document.querySelector('.chat-panel');
+                const chatSection = document.querySelector('.chat-section');
                 const chatInputWrapper = document.getElementById('chatInputWrapper');
                 
+                // Chat section
+                if (chatSection) {
+                    chatSection.style.height = '40vh';
+                    chatSection.style.minHeight = '40vh';
+                    chatSection.style.maxHeight = '40vh';
+                }
+                
+                // Chat panel
+                if (chatPanel) {
+                    chatPanel.style.display = 'flex';
+                    chatPanel.style.flexDirection = 'column';
+                    chatPanel.style.height = '100%';
+                    chatPanel.style.overflow = 'hidden';
+                }
+                
+                // Chat messages - EN ÖNEMLİSİ
                 if (chatMessages) {
                     chatMessages.style.cssText = `
                         display: block !important;
                         visibility: visible !important;
                         opacity: 1 !important;
-                        overflow-y: auto !important;
+                        overflow-y: scroll !important;
+                        -webkit-overflow-scrolling: touch !important;
                         padding: 15px !important;
-                        padding-bottom: 100px !important;
+                        padding-bottom: 90px !important;
                         background: #161b22 !important;
                         position: relative !important;
                         z-index: 1 !important;
-                        min-height: 200px !important;
-                        height: auto !important;
-                    `;
-                }
-                
-                if (chatPanel) {
-                    chatPanel.style.cssText = `
-                        display: flex !important;
-                        flex-direction: column !important;
-                        overflow: visible !important;
+                        min-height: 150px !important;
                         height: 100% !important;
+                        flex: 1 !important;
                     `;
+                    
+                    // İçeriği görünür yap
+                    const messages = chatMessages.querySelectorAll('.chat-message');
+                    messages.forEach(msg => {
+                        msg.style.display = 'block';
+                        msg.style.visibility = 'visible';
+                        msg.style.opacity = '1';
+                    });
                 }
                 
-                if (chatInputWrapper && window.innerWidth <= 900) {
+                // Chat input
+                if (chatInputWrapper) {
                     chatInputWrapper.style.cssText = `
                         display: flex !important;
                         visibility: visible !important;
@@ -173,22 +194,30 @@
         };
         
         // Sayfa yüklendiğinde zorla
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                forceChatVisible();
-                setTimeout(forceChatVisible, 100);
-                setTimeout(forceChatVisible, 500);
-            });
-        } else {
+        const initChat = () => {
             forceChatVisible();
             setTimeout(forceChatVisible, 100);
             setTimeout(forceChatVisible, 500);
+            setTimeout(forceChatVisible, 1000);
+        };
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initChat);
+        } else {
+            initChat();
         }
         
         // Mobilde periyodik kontrol
         if (window.innerWidth <= 900) {
-            setInterval(forceChatVisible, 2000);
+            setInterval(forceChatVisible, 3000);
         }
+        
+        // Window resize'da da kontrol et
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 900) {
+                forceChatVisible();
+            }
+        });
 
         // Ev sahibi durumu al
         socket.on('your-host-status', (data) => {
@@ -635,25 +664,15 @@
                 return;
             }
             
-            // Container'ı zorla görünür yap
-            container.style.cssText = `
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                overflow-y: auto !important;
-                padding: 15px !important;
-                padding-bottom: 100px !important;
-                background: #161b22 !important;
-                position: relative !important;
-                z-index: 1 !important;
-                min-height: 200px !important;
-                height: auto !important;
-            `;
+            // Mobilde görünürlüğü zorla
+            if (window.innerWidth <= 900) {
+                forceChatVisible();
+            }
             
             const isMe = msg.username === username;
             const div = document.createElement('div');
             div.className = `chat-message ${isMe ? 'me' : ''}`;
-            div.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important;';
+            div.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; margin-bottom: 12px !important;';
             div.innerHTML = `
                 <span class="chat-user">${msg.username}</span>
                 <span class="chat-text">${escapeHtml(msg.message)}</span>
@@ -663,7 +682,7 @@
             // Scroll'u en alta al
             setTimeout(() => {
                 container.scrollTop = container.scrollHeight;
-            }, 100);
+            }, 50);
         }
 
         // Sistem mesajı
@@ -671,31 +690,21 @@
             const container = document.getElementById('chatMessages');
             if (!container) return;
             
-            // Container'ı zorla görünür yap
-            container.style.cssText = `
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                overflow-y: auto !important;
-                padding: 15px !important;
-                padding-bottom: 100px !important;
-                background: #161b22 !important;
-                position: relative !important;
-                z-index: 1 !important;
-                min-height: 200px !important;
-                height: auto !important;
-            `;
+            // Mobilde görünürlüğü zorla
+            if (window.innerWidth <= 900) {
+                forceChatVisible();
+            }
             
             const div = document.createElement('div');
             div.className = 'chat-message system';
-            div.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important;';
+            div.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; margin-bottom: 12px !important;';
             div.innerHTML = `<span class="chat-text">${text}</span>`;
             container.appendChild(div);
             
             // Scroll'u en alta al
             setTimeout(() => {
                 container.scrollTop = container.scrollHeight;
-            }, 100);
+            }, 50);
         }
 
         // Emoji tepkisi göster
