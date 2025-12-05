@@ -81,7 +81,7 @@
 
             <div class="chat-panel">
                 <div class="chat-messages" id="chatMessages"></div>
-                <div class="chat-input-wrapper">
+                <div class="chat-input-wrapper" id="chatInputWrapper">
                     <input type="text" id="chatInput" placeholder="Mesaj yaz..." maxlength="200">
                     <button class="btn-send" id="sendMessage">📤</button>
                 </div>
@@ -119,6 +119,20 @@
 
         // Odaya katıl
         socket.emit('join-room', { roomId, username });
+
+        // Chat input'un her zaman görünür olduğundan emin ol
+        const ensureChatInputVisible = () => {
+            const chatInputWrapper = document.getElementById('chatInputWrapper');
+            if (chatInputWrapper) {
+                chatInputWrapper.style.display = 'flex';
+                chatInputWrapper.style.visibility = 'visible';
+                chatInputWrapper.style.opacity = '1';
+            }
+        };
+        
+        // Sayfa yüklendiğinde ve her render sonrası kontrol et
+        ensureChatInputVisible();
+        setInterval(ensureChatInputVisible, 1000);
 
         // Ev sahibi durumu al
         socket.on('your-host-status', (data) => {

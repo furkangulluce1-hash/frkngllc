@@ -433,11 +433,13 @@ footer {
     flex-direction: column;
     background: #161b22;
     border-left: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 0; /* Flexbox için önemli */
 }
 
 .users-panel {
     padding: 15px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0; /* Küçülmesin */
 }
 
 .users-panel h3 {
@@ -537,12 +539,14 @@ footer {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0; /* Flexbox için önemli */
 }
 
 .chat-messages {
     flex: 1;
     overflow-y: auto;
     padding: 15px;
+    min-height: 0; /* Flexbox için önemli */
 }
 
 .chat-message {
@@ -598,6 +602,8 @@ footer {
     position: relative;
     z-index: 100;
     background: #161b22;
+    flex-shrink: 0; /* Küçülmesin */
+    min-height: 60px; /* Minimum yükseklik */
 }
 
 .chat-input-wrapper input {
@@ -656,12 +662,32 @@ footer {
         height: 40vh;
         border-left: none;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
     }
 
     .chat-input-wrapper {
-        position: sticky;
-        bottom: 0;
-        background: #161b22;
+        position: sticky !important;
+        bottom: 0 !important;
+        background: #161b22 !important;
+        display: flex !important;
+        flex-shrink: 0;
+        min-height: 60px;
+        z-index: 1000;
     }
 
     .video-section {
