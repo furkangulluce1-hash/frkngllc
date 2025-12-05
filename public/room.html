@@ -120,65 +120,74 @@
         // Odaya katıl
         socket.emit('join-room', { roomId, username });
 
-        // Chat input ve messages görünürlüğünü kontrol et (optimize edilmiş)
-        let lastCheckTime = 0;
-        const CHECK_INTERVAL = 2000; // 2 saniyede bir kontrol et
-        
-        const ensureChatVisible = () => {
-            const now = Date.now();
-            if (now - lastCheckTime < CHECK_INTERVAL) {
-                return; // Çok sık kontrol etme
-            }
-            lastCheckTime = now;
-            
+        // Chat görünürlüğünü zorla (mobil için)
+        const forceChatVisible = () => {
             try {
-                // Chat input kontrolü
+                const chatMessages = document.getElementById('chatMessages');
+                const chatPanel = document.querySelector('.chat-panel');
                 const chatInputWrapper = document.getElementById('chatInputWrapper');
-                if (chatInputWrapper) {
-                    const computedStyle = window.getComputedStyle(chatInputWrapper);
-                    if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
-                        chatInputWrapper.style.display = 'flex';
-                        chatInputWrapper.style.visibility = 'visible';
-                    }
-                    
-                    // Mobilde fixed position
-                    if (window.innerWidth <= 900 && computedStyle.position !== 'fixed') {
-                        chatInputWrapper.style.position = 'fixed';
-                        chatInputWrapper.style.bottom = '0';
-                        chatInputWrapper.style.left = '0';
-                        chatInputWrapper.style.right = '0';
-                        chatInputWrapper.style.width = '100%';
-                        chatInputWrapper.style.zIndex = '9999';
-                    }
+                
+                if (chatMessages) {
+                    chatMessages.style.cssText = `
+                        display: block !important;
+                        visibility: visible !important;
+                        opacity: 1 !important;
+                        overflow-y: auto !important;
+                        padding: 15px !important;
+                        padding-bottom: 100px !important;
+                        background: #161b22 !important;
+                        position: relative !important;
+                        z-index: 1 !important;
+                        min-height: 200px !important;
+                        height: auto !important;
+                    `;
                 }
                 
-                // Chat messages kontrolü
-                const chatMessages = document.getElementById('chatMessages');
-                if (chatMessages) {
-                    const computedStyle = window.getComputedStyle(chatMessages);
-                    if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
-                        chatMessages.style.display = 'block';
-                        chatMessages.style.visibility = 'visible';
-                        chatMessages.style.opacity = '1';
-                    }
+                if (chatPanel) {
+                    chatPanel.style.cssText = `
+                        display: flex !important;
+                        flex-direction: column !important;
+                        overflow: visible !important;
+                        height: 100% !important;
+                    `;
+                }
+                
+                if (chatInputWrapper && window.innerWidth <= 900) {
+                    chatInputWrapper.style.cssText = `
+                        display: flex !important;
+                        visibility: visible !important;
+                        opacity: 1 !important;
+                        position: fixed !important;
+                        bottom: 0 !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        width: 100% !important;
+                        background: #161b22 !important;
+                        z-index: 9999 !important;
+                        padding: 15px !important;
+                    `;
                 }
             } catch (err) {
                 console.error('Chat görünürlük hatası:', err);
             }
         };
         
-        // Sayfa yüklendiğinde bir kez çalıştır
+        // Sayfa yüklendiğinde zorla
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                setTimeout(ensureChatVisible, 500);
+                forceChatVisible();
+                setTimeout(forceChatVisible, 100);
+                setTimeout(forceChatVisible, 500);
             });
         } else {
-            setTimeout(ensureChatVisible, 500);
+            forceChatVisible();
+            setTimeout(forceChatVisible, 100);
+            setTimeout(forceChatVisible, 500);
         }
         
-        // Sadece mobilde kontrol et
+        // Mobilde periyodik kontrol
         if (window.innerWidth <= 900) {
-            setInterval(ensureChatVisible, 3000); // 3 saniyede bir
+            setInterval(forceChatVisible, 2000);
         }
 
         // Ev sahibi durumu al
@@ -626,14 +635,25 @@
                 return;
             }
             
-            // Container'ın görünür olduğundan emin ol
-            container.style.display = 'block';
-            container.style.visibility = 'visible';
-            container.style.opacity = '1';
+            // Container'ı zorla görünür yap
+            container.style.cssText = `
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                overflow-y: auto !important;
+                padding: 15px !important;
+                padding-bottom: 100px !important;
+                background: #161b22 !important;
+                position: relative !important;
+                z-index: 1 !important;
+                min-height: 200px !important;
+                height: auto !important;
+            `;
             
             const isMe = msg.username === username;
             const div = document.createElement('div');
             div.className = `chat-message ${isMe ? 'me' : ''}`;
+            div.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important;';
             div.innerHTML = `
                 <span class="chat-user">${msg.username}</span>
                 <span class="chat-text">${escapeHtml(msg.message)}</span>
@@ -651,13 +671,24 @@
             const container = document.getElementById('chatMessages');
             if (!container) return;
             
-            // Container'ın görünür olduğundan emin ol
-            container.style.display = 'block';
-            container.style.visibility = 'visible';
-            container.style.opacity = '1';
+            // Container'ı zorla görünür yap
+            container.style.cssText = `
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                overflow-y: auto !important;
+                padding: 15px !important;
+                padding-bottom: 100px !important;
+                background: #161b22 !important;
+                position: relative !important;
+                z-index: 1 !important;
+                min-height: 200px !important;
+                height: auto !important;
+            `;
             
             const div = document.createElement('div');
             div.className = 'chat-message system';
+            div.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important;';
             div.innerHTML = `<span class="chat-text">${text}</span>`;
             container.appendChild(div);
             

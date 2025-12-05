@@ -536,10 +536,11 @@ footer {
 
 .chat-panel {
     flex: 1;
-    display: flex;
-    flex-direction: column;
+    display: flex !important;
+    flex-direction: column !important;
     overflow: hidden;
     min-height: 0; /* Flexbox için önemli */
+    position: relative;
 }
 
 .chat-messages {
@@ -690,22 +691,34 @@ footer {
         display: flex !important;
         flex-direction: column !important;
         min-height: 0;
-        overflow: hidden;
+        overflow: visible !important;
         position: relative;
+        height: 100% !important;
     }
 
     .chat-messages {
-        flex: 1;
+        flex: 1 !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
-        min-height: 0;
-        max-height: calc(40vh - 180px) !important; /* Chat input ve users panel için yer bırak */
+        min-height: 200px !important;
+        max-height: calc(40vh - 180px) !important;
         padding: 15px !important;
-        padding-bottom: 80px !important; /* Chat input için yer */
+        padding-bottom: 100px !important; /* Chat input için yer */
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
         background: #161b22 !important;
+        position: relative !important;
+        z-index: 1 !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+    
+    /* Chat messages içeriği görünür olsun */
+    .chat-messages .chat-message {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 
     .chat-input-wrapper {
