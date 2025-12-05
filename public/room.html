@@ -123,16 +123,60 @@
         // Chat input'un her zaman görünür olduğundan emin ol
         const ensureChatInputVisible = () => {
             const chatInputWrapper = document.getElementById('chatInputWrapper');
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendMessage');
+            
             if (chatInputWrapper) {
-                chatInputWrapper.style.display = 'flex';
-                chatInputWrapper.style.visibility = 'visible';
-                chatInputWrapper.style.opacity = '1';
+                chatInputWrapper.style.cssText = `
+                    display: flex !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    position: fixed !important;
+                    bottom: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    width: 100% !important;
+                    background: #161b22 !important;
+                    z-index: 9999 !important;
+                    padding: 15px !important;
+                `;
+            }
+            
+            if (chatInput) {
+                chatInput.style.cssText = `
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                `;
+            }
+            
+            if (sendBtn) {
+                sendBtn.style.cssText = `
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                `;
             }
         };
         
         // Sayfa yüklendiğinde ve her render sonrası kontrol et
         ensureChatInputVisible();
-        setInterval(ensureChatInputVisible, 1000);
+        setTimeout(ensureChatInputVisible, 100);
+        setTimeout(ensureChatInputVisible, 500);
+        setTimeout(ensureChatInputVisible, 1000);
+        setInterval(ensureChatInputVisible, 2000);
+        
+        // MutationObserver ile DOM değişikliklerini izle
+        const observer = new MutationObserver(() => {
+            ensureChatInputVisible();
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style', 'class']
+        });
 
         // Ev sahibi durumu al
         socket.on('your-host-status', (data) => {
