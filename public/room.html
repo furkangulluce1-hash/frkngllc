@@ -99,6 +99,8 @@
         let hls = null;
         let isSyncing = false;
         let isHost = false;
+        let lastSyncTime = 0;
+        let syncDebounceTimer = null;
 
         // Sesli konuşma değişkenleri
         let peer = null;
@@ -217,34 +219,41 @@
                 document.getElementById('videoUrl').value = data.videoUrl;
                 loadHLSVideo(data.videoUrl);
                 
-                // Senkronize ol
-                setTimeout(() => {
-                    video.currentTime = data.currentTime;
-                    if (data.isPlaying) {
-                        if (!isHost) {
-                            video.muted = true;
-                        }
-                        video.play().then(() => {
-                            // Video oynatıldığında overlay'i gizle
+                // Senkronize ol (video yüklendikten sonra)
+                const syncAfterLoad = () => {
+                    if (video.readyState >= 2) { // Yeterli veri yüklendi
+                        video.currentTime = data.currentTime;
+                        if (data.isPlaying) {
+                            if (!isHost) {
+                                video.muted = true;
+                            }
+                            video.play().then(() => {
+                                // Video oynatıldığında overlay'i gizle
+                                if (!isHost) {
+                                    const guestOverlay = document.getElementById('guestControlOverlay');
+                                    if (guestOverlay) {
+                                        guestOverlay.style.display = 'none';
+                                    }
+                                }
+                            }).catch(err => {
+                                console.error('Video oynatma hatası:', err);
+                            });
+                        } else {
+                            // Video durduğunda overlay'i göster
                             if (!isHost) {
                                 const guestOverlay = document.getElementById('guestControlOverlay');
                                 if (guestOverlay) {
-                                    guestOverlay.style.display = 'none';
+                                    guestOverlay.style.display = 'flex';
                                 }
                             }
-                        }).catch(err => {
-                            console.error('Video oynatma hatası:', err);
-                        });
-                    } else {
-                        // Video durduğunda overlay'i göster
-                        if (!isHost) {
-                            const guestOverlay = document.getElementById('guestControlOverlay');
-                            if (guestOverlay) {
-                                guestOverlay.style.display = 'flex';
-                            }
                         }
+                    } else {
+                        // Video henüz yüklenmediyse bekle
+                        video.addEventListener('loadeddata', syncAfterLoad, { once: true });
                     }
-                }, 1000);
+                };
+                
+                setTimeout(syncAfterLoad, 500);
             }
             
             addSystemMessage(`${data.user.username} odaya katıldı! 🎉`);
@@ -270,56 +279,81 @@
             }
         });
 
-        // Video senkronizasyonu
+        // Video senkronizasyonu (optimize edilmiş)
         socket.on('sync-video', (data) => {
-            if (isSyncing) return; // Zaten senkronize ediliyorsa atla
-            
-            isSyncing = true;
-            const guestOverlay = document.getElementById('guestControlOverlay');
-            
-            const timeDiff = Math.abs(video.currentTime - data.currentTime);
-            if (timeDiff > 1) {
-                video.currentTime = data.currentTime;
+            // Debounce: Çok sık senkronizasyon yapma
+            if (syncDebounceTimer) {
+                clearTimeout(syncDebounceTimer);
             }
-
-            if (data.isPlaying) {
-                if (video.paused) {
-                    // Otomatik oynatma için önce muted yap, sonra oynat
-                    if (!isHost) {
-                        video.muted = true;
+            
+            syncDebounceTimer = setTimeout(() => {
+                if (isSyncing) return; // Zaten senkronize ediliyorsa atla
+                
+                // Son senkronizasyondan 500ms geçmediyse atla
+                const now = Date.now();
+                if (now - lastSyncTime < 500) {
+                    return;
+                }
+                
+                isSyncing = true;
+                lastSyncTime = now;
+                const guestOverlay = document.getElementById('guestControlOverlay');
+                
+                // Sadece 3 saniyeden fazla fark varsa senkronize et (donmayı önler)
+                const timeDiff = Math.abs(video.currentTime - data.currentTime);
+                if (timeDiff > 3 && video.readyState >= 2) { // readyState >= 2: yeterli veri yüklendi
+                    // Yumuşak senkronizasyon - ani sıçrama yerine kademeli
+                    const targetTime = data.currentTime;
+                    const currentTime = video.currentTime;
+                    const diff = targetTime - currentTime;
+                    
+                    // Eğer fark çok büyükse (10 saniye+), direkt atla
+                    if (Math.abs(diff) > 10) {
+                        video.currentTime = targetTime;
+                    } else {
+                        // Küçük farklar için yumuşak geçiş
+                        video.currentTime = currentTime + (diff * 0.3);
                     }
-                    const playPromise = video.play();
-                    if (playPromise !== undefined) {
-                        playPromise
-                            .then(() => {
-                                // Oynatma başarılı, overlay'i gizle
-                                console.log('✅ Video oynatıldı');
-                                if (!isHost && guestOverlay) {
-                                    guestOverlay.style.display = 'none';
-                                }
-                            })
-                            .catch(err => {
-                                console.error('❌ Video oynatma hatası:', err);
-                                // Kullanıcı etkileşimi gerekiyor olabilir
-                            });
+                }
+
+                // Play/Pause kontrolü
+                if (data.isPlaying) {
+                    if (video.paused) {
+                        // Otomatik oynatma için önce muted yap, sonra oynat
+                        if (!isHost) {
+                            video.muted = true;
+                        }
+                        const playPromise = video.play();
+                        if (playPromise !== undefined) {
+                            playPromise
+                                .then(() => {
+                                    // Oynatma başarılı, overlay'i gizle
+                                    if (!isHost && guestOverlay) {
+                                        guestOverlay.style.display = 'none';
+                                    }
+                                })
+                                .catch(err => {
+                                    console.error('❌ Video oynatma hatası:', err);
+                                });
+                        }
+                    } else {
+                        // Zaten oynatılıyorsa overlay'i gizle
+                        if (!isHost && guestOverlay) {
+                            guestOverlay.style.display = 'none';
+                        }
                     }
                 } else {
-                    // Zaten oynatılıyorsa overlay'i gizle
+                    if (!video.paused) {
+                        video.pause();
+                    }
+                    // Video durduğunda overlay'i göster (sadece misafirler için)
                     if (!isHost && guestOverlay) {
-                        guestOverlay.style.display = 'none';
+                        guestOverlay.style.display = 'flex';
                     }
                 }
-            } else {
-                if (!video.paused) {
-                    video.pause();
-                }
-                // Video durduğunda overlay'i göster (sadece misafirler için)
-                if (!isHost && guestOverlay) {
-                    guestOverlay.style.display = 'flex';
-                }
-            }
 
-            setTimeout(() => { isSyncing = false; }, 300);
+                setTimeout(() => { isSyncing = false; }, 200);
+            }, 100); // 100ms debounce
         });
 
         // Chat geçmişi
@@ -368,13 +402,43 @@
                     });
                     hls.loadSource(url);
                     hls.attachMedia(video);
+                    
+                    // HLS buffering kontrolü
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        console.log('HLS yüklendi');
+                        console.log('✅ HLS manifest yüklendi');
                     });
+                    
+                    hls.on(Hls.Events.FRAG_LOADED, () => {
+                        // Fragment yüklendi - buffering devam ediyor
+                    });
+                    
+                    // Buffering başladığında senkronizasyonu durdur
+                    video.addEventListener('waiting', () => {
+                        isSyncing = true; // Buffering sırasında senkronizasyon yapma
+                    });
+                    
+                    // Buffering bittiğinde senkronizasyonu devam ettir
+                    video.addEventListener('playing', () => {
+                        setTimeout(() => { isSyncing = false; }, 500);
+                    });
+                    
                     hls.on(Hls.Events.ERROR, (event, data) => {
-                        console.error('HLS Hatası:', data);
+                        console.error('❌ HLS Hatası:', data);
                         if (data.fatal) {
-                            alert('Video yüklenemedi! URL\'yi kontrol edin.');
+                            switch(data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    console.log('🔄 Ağ hatası, yeniden deneniyor...');
+                                    hls.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    console.log('🔄 Medya hatası, yeniden deneniyor...');
+                                    hls.recoverMediaError();
+                                    break;
+                                default:
+                                    alert('Video yüklenemedi! URL\'yi kontrol edin.');
+                                    hls.destroy();
+                                    break;
+                            }
                         }
                     });
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -385,34 +449,61 @@
             }
         }
 
-        // Video olayları (sadece ev sahibi kontrol edebilir)
+        // Video olayları (sadece ev sahibi kontrol edebilir) - Debounce ile
+        let playPauseDebounce = null;
+        
         video.addEventListener('play', () => {
-            if (!isSyncing && isHost) {
-                socket.emit('play-pause', { 
-                    roomId, 
-                    isPlaying: true, 
-                    currentTime: video.currentTime 
-                });
-            } else if (!isHost && !isSyncing) {
-                // Misafir oynatmaya çalışırsa durdur (senkronizasyon değilse)
+            if (isSyncing) return; // Senkronizasyon sırasında event'leri yok say
+            
+            if (isHost) {
+                // Debounce: Çok sık event gönderme
+                if (playPauseDebounce) {
+                    clearTimeout(playPauseDebounce);
+                }
+                playPauseDebounce = setTimeout(() => {
+                    socket.emit('play-pause', { 
+                        roomId, 
+                        isPlaying: true, 
+                        currentTime: video.currentTime 
+                    });
+                }, 300);
+            } else {
+                // Misafir oynatmaya çalışırsa durdur
                 video.pause();
             }
         });
 
         video.addEventListener('pause', () => {
-            if (!isSyncing && isHost) {
-                socket.emit('play-pause', { 
-                    roomId, 
-                    isPlaying: false, 
-                    currentTime: video.currentTime 
-                });
+            if (isSyncing) return; // Senkronizasyon sırasında event'leri yok say
+            
+            if (isHost) {
+                // Debounce: Çok sık event gönderme
+                if (playPauseDebounce) {
+                    clearTimeout(playPauseDebounce);
+                }
+                playPauseDebounce = setTimeout(() => {
+                    socket.emit('play-pause', { 
+                        roomId, 
+                        isPlaying: false, 
+                        currentTime: video.currentTime 
+                    });
+                }, 300);
             }
         });
 
+        let seekDebounce = null;
         video.addEventListener('seeked', () => {
-            if (!isSyncing && isHost) {
-                socket.emit('seek', { roomId, currentTime: video.currentTime });
-            } else if (!isHost) {
+            if (isSyncing) return; // Senkronizasyon sırasında event'leri yok say
+            
+            if (isHost) {
+                // Debounce: Çok sık seek event'i gönderme
+                if (seekDebounce) {
+                    clearTimeout(seekDebounce);
+                }
+                seekDebounce = setTimeout(() => {
+                    socket.emit('seek', { roomId, currentTime: video.currentTime });
+                }, 500);
+            } else {
                 // Misafir sarmaya çalışırsa geri al
                 socket.emit('get-current-time', { roomId });
             }
@@ -420,8 +511,12 @@
 
         // Misafirler için mevcut zamanı al
         socket.on('current-time', (data) => {
-            if (!isHost && !isSyncing) {
-                video.currentTime = data.currentTime;
+            if (!isHost && !isSyncing && video.readyState >= 2) {
+                const timeDiff = Math.abs(video.currentTime - data.currentTime);
+                // Sadece 2 saniyeden fazla fark varsa senkronize et
+                if (timeDiff > 2) {
+                    video.currentTime = data.currentTime;
+                }
             }
         });
 

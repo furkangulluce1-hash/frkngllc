@@ -279,8 +279,24 @@ io.on('connection', (socket) => {
     });
 });
 
+// Uyku modunu önlemek için ping endpoint'i
+app.get('/ping', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Her 5 dakikada bir otomatik ping (opsiyonel - cron job ile)
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'healthy', 
+        rooms: rooms.size,
+        timestamp: new Date().toISOString() 
+    });
+});
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🎬 Maç İzle sunucusu çalışıyor: http://localhost:${PORT}`);
+    console.log(`💚 Health check: http://localhost:${PORT}/health`);
+    console.log(`📡 Ping endpoint: http://localhost:${PORT}/ping`);
 });
 
