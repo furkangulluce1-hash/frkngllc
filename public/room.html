@@ -88,6 +88,11 @@
                 <input type="text" id="chatInput" placeholder="Mesaj yaz..." maxlength="200">
                 <button class="btn-send" id="sendMessage">📤</button>
             </div>
+            
+            <!-- Debug: Chat messages görünürlüğü kontrolü -->
+            <div id="chatDebug" style="display: none; position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; z-index: 99999;">
+                Chat Messages: <span id="chatStatus">Yükleniyor...</span>
+            </div>
         </div>
     </div>
 
@@ -121,6 +126,16 @@
 
         // Odaya katıl
         socket.emit('join-room', { roomId, username });
+        
+        // Sayfa yüklendiğinde video durumunu al (misafirler için)
+        socket.on('connect', () => {
+            if (!isHost) {
+                // Bağlantı kurulduktan sonra video durumunu al
+                setTimeout(() => {
+                    socket.emit('get-video-state', { roomId });
+                }, 500);
+            }
+        });
 
         // Chat görünürlüğünü zorla (mobil için - basit ve garantili)
         const forceChatVisible = () => {
@@ -128,19 +143,28 @@
                 const chatMessages = document.getElementById('chatMessages');
                 const chatPanel = document.querySelector('.chat-panel');
                 const chatInputWrapper = document.getElementById('chatInputWrapper');
+                const chatSection = document.querySelector('.chat-section');
+                const isMobile = window.innerWidth <= 900;
+                
+                // Chat section'ı görünür yap
+                if (chatSection) {
+                    chatSection.style.display = 'flex';
+                    chatSection.style.visibility = 'visible';
+                    chatSection.style.opacity = '1';
+                }
                 
                 // Chat messages - EN ÖNEMLİSİ - HER ZAMAN GÖRÜNÜR
                 if (chatMessages) {
-                    if (window.innerWidth <= 900) {
+                    if (isMobile) {
                         // Mobilde absolute position
                         chatMessages.style.cssText = `
                             display: block !important;
                             visibility: visible !important;
                             opacity: 1 !important;
-                            overflow-y: scroll !important;
+                            overflow-y: auto !important;
                             -webkit-overflow-scrolling: touch !important;
                             padding: 15px !important;
-                            padding-bottom: 20px !important;
+                            padding-bottom: 80px !important;
                             background: #161b22 !important;
                             position: absolute !important;
                             top: 0 !important;
@@ -150,6 +174,7 @@
                             z-index: 1 !important;
                             width: 100% !important;
                             height: 100% !important;
+                            box-sizing: border-box !important;
                         `;
                     } else {
                         // Desktop'ta normal
@@ -157,7 +182,7 @@
                             display: block !important;
                             visibility: visible !important;
                             opacity: 1 !important;
-                            overflow-y: scroll !important;
+                            overflow-y: auto !important;
                             padding: 15px !important;
                             background: #161b22 !important;
                             flex: 1 !important;
@@ -171,21 +196,36 @@
                         msg.style.visibility = 'visible';
                         msg.style.opacity = '1';
                     });
+                    
+                    // Scroll'u en alta al
+                    setTimeout(() => {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }, 100);
                 }
                 
                 // Chat panel
-                if (chatPanel && window.innerWidth <= 900) {
-                    chatPanel.style.cssText = `
-                        display: block !important;
-                        position: relative !important;
-                        height: calc(40vh - 200px) !important;
-                        overflow: hidden !important;
-                    `;
+                if (chatPanel) {
+                    if (isMobile) {
+                        chatPanel.style.cssText = `
+                            display: block !important;
+                            position: relative !important;
+                            height: calc(40vh - 180px) !important;
+                            overflow: hidden !important;
+                            background: #161b22 !important;
+                        `;
+                    } else {
+                        chatPanel.style.cssText = `
+                            display: flex !important;
+                            flex-direction: column !important;
+                            flex: 1 !important;
+                            overflow: hidden !important;
+                        `;
+                    }
                 }
                 
                 // Chat input - mobilde fixed
                 if (chatInputWrapper) {
-                    if (window.innerWidth <= 900) {
+                    if (isMobile) {
                         chatInputWrapper.style.cssText = `
                             display: flex !important;
                             visibility: visible !important;
@@ -198,6 +238,7 @@
                             background: #161b22 !important;
                             z-index: 9999 !important;
                             padding: 15px !important;
+                            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3) !important;
                         `;
                     } else {
                         chatInputWrapper.style.cssText = `
@@ -205,6 +246,20 @@
                             visibility: visible !important;
                             opacity: 1 !important;
                         `;
+                    }
+                    
+                    // Input ve buton görünürlüğü
+                    const input = chatInputWrapper.querySelector('input');
+                    const sendBtn = chatInputWrapper.querySelector('button');
+                    if (input) {
+                        input.style.display = 'block';
+                        input.style.visibility = 'visible';
+                        input.style.opacity = '1';
+                    }
+                    if (sendBtn) {
+                        sendBtn.style.display = 'block';
+                        sendBtn.style.visibility = 'visible';
+                        sendBtn.style.opacity = '1';
                     }
                 }
             } catch (err) {
@@ -216,8 +271,10 @@
         const initChat = () => {
             forceChatVisible();
             setTimeout(forceChatVisible, 100);
+            setTimeout(forceChatVisible, 300);
             setTimeout(forceChatVisible, 500);
             setTimeout(forceChatVisible, 1000);
+            setTimeout(forceChatVisible, 2000);
         };
         
         if (document.readyState === 'loading') {
@@ -228,14 +285,12 @@
         
         // Mobilde periyodik kontrol
         if (window.innerWidth <= 900) {
-            setInterval(forceChatVisible, 3000);
+            setInterval(forceChatVisible, 2000);
         }
         
         // Window resize'da da kontrol et
         window.addEventListener('resize', () => {
-            if (window.innerWidth <= 900) {
-                forceChatVisible();
-            }
+            forceChatVisible();
         });
 
         // Ev sahibi durumu al
@@ -340,23 +395,39 @@
                     
                     // Senkronize ol (video yüklendikten sonra) - GÜVENİLİR YÖNTEM
                     let syncAttempts = 0;
-                    const maxSyncAttempts = 10;
+                    const maxSyncAttempts = 20;
+                    let hasSynced = false;
                     
                     const syncAfterLoad = () => {
+                        if (hasSynced) return; // Zaten senkronize edildiyse tekrar yapma
                         syncAttempts++;
                         
-                        if (video.readyState >= 2 || video.readyState >= 1) { // Yeterli veri yüklendi
+                        // Video yeterli veri yüklediyse senkronize et
+                        if (video.readyState >= 2 || (video.readyState >= 1 && video.buffered.length > 0)) {
+                            hasSynced = true;
+                            
                             // Ev sahibinin kaldığı yerden devam et - ÖNEMLİ!
                             if (data.currentTime > 0) {
+                                // Önce zamanı ayarla
                                 video.currentTime = data.currentTime;
-                                console.log('✅ Video senkronize edildi:', data.currentTime, 'saniye');
+                                console.log('✅ Video senkronize edildi (user-joined):', data.currentTime, 'saniye');
+                                
+                                // Zamanın gerçekten ayarlandığından emin ol
+                                setTimeout(() => {
+                                    if (Math.abs(video.currentTime - data.currentTime) > 1) {
+                                        video.currentTime = data.currentTime;
+                                        console.log('🔄 Video zamanı tekrar ayarlandı:', data.currentTime);
+                                    }
+                                }, 500);
                             }
                             
+                            // Oynatma durumunu ayarla
                             if (data.isPlaying) {
                                 if (!isHost) {
                                     video.muted = true;
                                 }
                                 video.play().then(() => {
+                                    console.log('▶️ Video oynatıldı (user-joined)');
                                     // Video oynatıldığında overlay'i gizle
                                     if (!isHost) {
                                         const guestOverlay = document.getElementById('guestControlOverlay');
@@ -368,6 +439,7 @@
                                     console.error('Video oynatma hatası:', err);
                                 });
                             } else {
+                                video.pause();
                                 // Video durduğunda overlay'i göster
                                 if (!isHost) {
                                     const guestOverlay = document.getElementById('guestControlOverlay');
@@ -378,7 +450,14 @@
                             }
                         } else if (syncAttempts < maxSyncAttempts) {
                             // Video henüz yüklenmediyse tekrar dene
-                            setTimeout(syncAfterLoad, 500);
+                            setTimeout(syncAfterLoad, 300);
+                        } else {
+                            // Maksimum deneme sayısına ulaşıldı, yine de senkronize et
+                            if (!hasSynced && data.currentTime > 0) {
+                                video.currentTime = data.currentTime;
+                                hasSynced = true;
+                                console.log('⚠️ Video senkronize edildi (zaman aşımı):', data.currentTime);
+                            }
                         }
                     };
                     
@@ -388,18 +467,26 @@
                             console.log('📺 HLS manifest yüklendi, senkronize ediliyor...');
                             setTimeout(syncAfterLoad, 500);
                         });
+                        
+                        hls.once(Hls.Events.LEVEL_LOADED, () => {
+                            console.log('📺 HLS level yüklendi, senkronize ediliyor...');
+                            setTimeout(syncAfterLoad, 500);
+                        });
                     }
                     
                     // Normal video için event listener'lar
                     video.addEventListener('loadeddata', syncAfterLoad, { once: true });
                     video.addEventListener('canplay', syncAfterLoad, { once: true });
+                    video.addEventListener('canplaythrough', syncAfterLoad, { once: true });
                     video.addEventListener('loadedmetadata', syncAfterLoad, { once: true });
                     
-                    // Zaman aşımı kontrolleri
+                    // Zaman aşımı kontrolleri - daha fazla deneme
                     setTimeout(syncAfterLoad, 500);
                     setTimeout(syncAfterLoad, 1000);
                     setTimeout(syncAfterLoad, 2000);
                     setTimeout(syncAfterLoad, 3000);
+                    setTimeout(syncAfterLoad, 4000);
+                    setTimeout(syncAfterLoad, 5000);
                 } else {
                     // Video yoksa mevcut durumu senkronize et
                     if (data.currentTime > 0) {
@@ -1109,8 +1196,12 @@
                 // Video URL varsa yükle
                 if (data.videoUrl) {
                     const currentUrl = document.getElementById('videoUrl')?.value || '';
-                    if (currentUrl !== data.videoUrl) {
-                        console.log('🔄 Video URL değişti, yükleniyor...');
+                    const currentSrc = video.src || '';
+                    const isHLS = hls && hls.media && hls.media.src;
+                    
+                    // URL değiştiyse veya video yüklenmemişse yükle
+                    if (currentUrl !== data.videoUrl || (!currentSrc && !isHLS)) {
+                        console.log('🔄 Video URL değişti veya yüklenmemiş, yükleniyor...');
                         document.getElementById('videoUrl').value = data.videoUrl;
                         loadHLSVideo(data.videoUrl);
                     }
@@ -1118,19 +1209,38 @@
                 
                 // Video yüklendikten sonra senkronize et - GÜVENİLİR YÖNTEM
                 let syncAttempts = 0;
-                const maxSyncAttempts = 15;
+                const maxSyncAttempts = 25;
+                let hasSynced = false;
                 
                 const syncVideo = () => {
+                    if (hasSynced) return; // Zaten senkronize edildiyse tekrar yapma
                     syncAttempts++;
                     
-                    if (video.readyState >= 2 || video.readyState >= 1) { // Yeterli veri yüklendi
+                    // Video yeterli veri yüklediyse senkronize et
+                    if (video.readyState >= 2 || (video.readyState >= 1 && video.buffered.length > 0)) {
+                        hasSynced = true;
+                        
                         // Mevcut zamanı senkronize et - ÖNEMLİ!
                         if (data.currentTime > 0) {
-                            const timeDiff = Math.abs(video.currentTime - data.currentTime);
-                            if (timeDiff > 1 || video.currentTime === 0) {
-                                video.currentTime = data.currentTime;
-                                console.log('✅ Video senkronize edildi:', data.currentTime, 'saniye');
-                            }
+                            // Önce zamanı ayarla
+                            video.currentTime = data.currentTime;
+                            console.log('✅ Video senkronize edildi (video-state):', data.currentTime, 'saniye');
+                            
+                            // Zamanın gerçekten ayarlandığından emin ol
+                            setTimeout(() => {
+                                if (Math.abs(video.currentTime - data.currentTime) > 1) {
+                                    video.currentTime = data.currentTime;
+                                    console.log('🔄 Video zamanı tekrar ayarlandı (video-state):', data.currentTime);
+                                }
+                            }, 500);
+                            
+                            // Bir kez daha kontrol et
+                            setTimeout(() => {
+                                if (Math.abs(video.currentTime - data.currentTime) > 1) {
+                                    video.currentTime = data.currentTime;
+                                    console.log('🔄 Video zamanı son kontrol:', data.currentTime);
+                                }
+                            }, 1500);
                         }
 
                         // Eğer ev sahibi oynatıyorsa, otomatik oynat
@@ -1139,7 +1249,7 @@
                                 video.muted = true;
                             }
                             video.play().then(() => {
-                                console.log('▶️ Video oynatıldı');
+                                console.log('▶️ Video oynatıldı (video-state)');
                                 if (!isHost) {
                                     const guestOverlay = document.getElementById('guestControlOverlay');
                                     if (guestOverlay) {
@@ -1161,6 +1271,13 @@
                     } else if (syncAttempts < maxSyncAttempts) {
                         // Video henüz yüklenmediyse tekrar dene
                         setTimeout(syncVideo, 300);
+                    } else {
+                        // Maksimum deneme sayısına ulaşıldı, yine de senkronize et
+                        if (!hasSynced && data.currentTime > 0) {
+                            video.currentTime = data.currentTime;
+                            hasSynced = true;
+                            console.log('⚠️ Video senkronize edildi (zaman aşımı - video-state):', data.currentTime);
+                        }
                     }
                 };
                 
@@ -1170,19 +1287,27 @@
                         console.log('📺 HLS manifest yüklendi (video-state), senkronize ediliyor...');
                         setTimeout(syncVideo, 500);
                     });
+                    
+                    hls.once(Hls.Events.LEVEL_LOADED, () => {
+                        console.log('📺 HLS level yüklendi (video-state), senkronize ediliyor...');
+                        setTimeout(syncVideo, 500);
+                    });
                 }
                 
                 // Normal video için event listener'lar
                 video.addEventListener('loadeddata', syncVideo, { once: true });
                 video.addEventListener('canplay', syncVideo, { once: true });
+                video.addEventListener('canplaythrough', syncVideo, { once: true });
                 video.addEventListener('loadedmetadata', syncVideo, { once: true });
                 
-                // Zaman aşımı kontrolleri
+                // Zaman aşımı kontrolleri - daha fazla deneme
                 setTimeout(syncVideo, 500);
                 setTimeout(syncVideo, 1000);
                 setTimeout(syncVideo, 2000);
                 setTimeout(syncVideo, 3000);
                 setTimeout(syncVideo, 4000);
+                setTimeout(syncVideo, 5000);
+                setTimeout(syncVideo, 6000);
             }
         });
     </script>

@@ -702,17 +702,19 @@ footer {
         min-height: 0 !important;
         overflow: hidden !important;
         position: relative !important;
-        height: calc(40vh - 200px) !important;
+        height: calc(40vh - 180px) !important;
+        background: #161b22 !important;
     }
 
     .chat-messages {
         width: 100% !important;
         height: 100% !important;
-        overflow-y: scroll !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
         overflow-x: hidden !important;
         -webkit-overflow-scrolling: touch !important;
         padding: 15px !important;
-        padding-bottom: 20px !important;
+        padding-bottom: 80px !important;
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -723,6 +725,9 @@ footer {
         right: 0 !important;
         bottom: 0 !important;
         z-index: 1 !important;
+        box-sizing: border-box !important;
+        transform: translateZ(0) !important;
+        -webkit-transform: translateZ(0) !important;
     }
     
     /* Chat messages içeriği görünür olsun */
@@ -731,6 +736,8 @@ footer {
         visibility: visible !important;
         opacity: 1 !important;
         margin-bottom: 12px !important;
+        transform: translateZ(0) !important;
+        -webkit-transform: translateZ(0) !important;
     }
 
     .chat-input-wrapper {
