@@ -80,8 +80,8 @@
             </div>
 
             <div class="chat-panel">
-                <div class="chat-messages" id="chatMessages"></div>
-                <div class="chat-input-wrapper" id="chatInputWrapper">
+                <div class="chat-messages" id="chatMessages" style="display: block !important; visibility: visible !important; opacity: 1 !important; overflow-y: scroll !important; padding: 15px !important; background: #161b22 !important;"></div>
+                <div class="chat-input-wrapper" id="chatInputWrapper" style="display: flex !important; visibility: visible !important;">
                     <input type="text" id="chatInput" placeholder="Mesaj yaz..." maxlength="200">
                     <button class="btn-send" id="sendMessage">📤</button>
                 </div>
@@ -122,30 +122,13 @@
 
         // Chat görünürlüğünü zorla (mobil için - basit ve garantili)
         const forceChatVisible = () => {
-            if (window.innerWidth > 900) return; // Sadece mobilde
-            
             try {
                 const chatMessages = document.getElementById('chatMessages');
                 const chatPanel = document.querySelector('.chat-panel');
                 const chatSection = document.querySelector('.chat-section');
                 const chatInputWrapper = document.getElementById('chatInputWrapper');
                 
-                // Chat section
-                if (chatSection) {
-                    chatSection.style.height = '40vh';
-                    chatSection.style.minHeight = '40vh';
-                    chatSection.style.maxHeight = '40vh';
-                }
-                
-                // Chat panel
-                if (chatPanel) {
-                    chatPanel.style.display = 'flex';
-                    chatPanel.style.flexDirection = 'column';
-                    chatPanel.style.height = '100%';
-                    chatPanel.style.overflow = 'hidden';
-                }
-                
-                // Chat messages - EN ÖNEMLİSİ
+                // Chat messages - EN ÖNEMLİSİ - HER ZAMAN GÖRÜNÜR
                 if (chatMessages) {
                     chatMessages.style.cssText = `
                         display: block !important;
@@ -172,21 +155,39 @@
                     });
                 }
                 
-                // Chat input
-                if (chatInputWrapper) {
-                    chatInputWrapper.style.cssText = `
-                        display: flex !important;
-                        visibility: visible !important;
-                        opacity: 1 !important;
-                        position: fixed !important;
-                        bottom: 0 !important;
-                        left: 0 !important;
-                        right: 0 !important;
-                        width: 100% !important;
-                        background: #161b22 !important;
-                        z-index: 9999 !important;
-                        padding: 15px !important;
-                    `;
+                // Mobilde ekstra ayarlar
+                if (window.innerWidth <= 900) {
+                    // Chat section
+                    if (chatSection) {
+                        chatSection.style.height = '40vh';
+                        chatSection.style.minHeight = '40vh';
+                        chatSection.style.maxHeight = '40vh';
+                    }
+                    
+                    // Chat panel
+                    if (chatPanel) {
+                        chatPanel.style.display = 'flex';
+                        chatPanel.style.flexDirection = 'column';
+                        chatPanel.style.height = '100%';
+                        chatPanel.style.overflow = 'hidden';
+                    }
+                    
+                    // Chat input
+                    if (chatInputWrapper) {
+                        chatInputWrapper.style.cssText = `
+                            display: flex !important;
+                            visibility: visible !important;
+                            opacity: 1 !important;
+                            position: fixed !important;
+                            bottom: 0 !important;
+                            left: 0 !important;
+                            right: 0 !important;
+                            width: 100% !important;
+                            background: #161b22 !important;
+                            z-index: 9999 !important;
+                            padding: 15px !important;
+                        `;
+                    }
                 }
             } catch (err) {
                 console.error('Chat görünürlük hatası:', err);
@@ -322,8 +323,11 @@
                     // Senkronize ol (video yüklendikten sonra)
                     const syncAfterLoad = () => {
                         if (video.readyState >= 2) { // Yeterli veri yüklendi
-                            // Ev sahibinin kaldığı yerden devam et
-                            video.currentTime = data.currentTime;
+                            // Ev sahibinin kaldığı yerden devam et - ÖNEMLİ!
+                            if (data.currentTime > 0) {
+                                video.currentTime = data.currentTime;
+                                console.log('✅ Video senkronize edildi:', data.currentTime, 'saniye');
+                            }
                             
                             if (data.isPlaying) {
                                 if (!isHost) {
@@ -352,10 +356,20 @@
                         } else {
                             // Video henüz yüklenmediyse bekle
                             video.addEventListener('loadeddata', syncAfterLoad, { once: true });
+                            video.addEventListener('canplay', syncAfterLoad, { once: true });
                         }
                     };
                     
+                    // HLS yüklendiğinde de senkronize et
+                    if (hls) {
+                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            setTimeout(syncAfterLoad, 500);
+                        });
+                    }
+                    
                     setTimeout(syncAfterLoad, 500);
+                    setTimeout(syncAfterLoad, 1000);
+                    setTimeout(syncAfterLoad, 2000);
                 } else {
                     // Video yoksa mevcut durumu senkronize et
                     if (data.currentTime > 0) {
@@ -664,6 +678,23 @@
                 return;
             }
             
+            // Container'ı kesinlikle görünür yap
+            container.style.cssText = `
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                overflow-y: scroll !important;
+                -webkit-overflow-scrolling: touch !important;
+                padding: 15px !important;
+                padding-bottom: 90px !important;
+                background: #161b22 !important;
+                position: relative !important;
+                z-index: 1 !important;
+                min-height: 150px !important;
+                height: 100% !important;
+                flex: 1 !important;
+            `;
+            
             // Mobilde görünürlüğü zorla
             if (window.innerWidth <= 900) {
                 forceChatVisible();
@@ -689,6 +720,23 @@
         function addSystemMessage(text) {
             const container = document.getElementById('chatMessages');
             if (!container) return;
+            
+            // Container'ı kesinlikle görünür yap
+            container.style.cssText = `
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                overflow-y: scroll !important;
+                -webkit-overflow-scrolling: touch !important;
+                padding: 15px !important;
+                padding-bottom: 90px !important;
+                background: #161b22 !important;
+                position: relative !important;
+                z-index: 1 !important;
+                min-height: 150px !important;
+                height: 100% !important;
+                flex: 1 !important;
+            `;
             
             // Mobilde görünürlüğü zorla
             if (window.innerWidth <= 900) {
@@ -1061,13 +1109,21 @@
             }
         });
 
-        // Video durumunu al (arka plandan döndüğünde)
+        // Video durumunu al (arka plandan döndüğünde veya sayfa yenilendiğinde)
         socket.on('video-state', (data) => {
             if (!isHost && !document.hidden) {
-                // Mevcut zamanı senkronize et
-                const timeDiff = Math.abs(video.currentTime - data.currentTime);
-                if (timeDiff > 1) {
-                    video.currentTime = data.currentTime;
+                // Video URL varsa yükle
+                if (data.videoUrl && (!video.src || video.src !== data.videoUrl)) {
+                    loadHLSVideo(data.videoUrl);
+                }
+                
+                // Mevcut zamanı senkronize et - ÖNEMLİ!
+                if (data.currentTime > 0) {
+                    const timeDiff = Math.abs(video.currentTime - data.currentTime);
+                    if (timeDiff > 1 || video.currentTime === 0) {
+                        video.currentTime = data.currentTime;
+                        console.log('✅ Video durumu senkronize edildi:', data.currentTime, 'saniye');
+                    }
                 }
 
                 // Eğer ev sahibi oynatıyorsa, otomatik oynat
@@ -1086,6 +1142,15 @@
                         console.error('Video oynatma hatası:', err);
                     });
                 }
+            }
+        });
+        
+        // Sayfa yüklendiğinde video durumunu al
+        socket.on('connect', () => {
+            if (!isHost) {
+                setTimeout(() => {
+                    socket.emit('get-video-state', { roomId });
+                }, 500);
             }
         });
     </script>

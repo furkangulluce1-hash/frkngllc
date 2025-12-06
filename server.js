@@ -188,7 +188,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Video durumunu al (arka plandan döndüğünde)
+    // Video durumunu al (arka plandan döndüğünde veya sayfa yenilendiğinde)
     socket.on('get-video-state', ({ roomId }) => {
         const room = rooms.get(roomId);
         if (room) {
@@ -197,6 +197,7 @@ io.on('connection', (socket) => {
                 currentTime: room.currentTime,
                 videoUrl: room.videoUrl
             });
+            console.log(`Video durumu gönderildi: ${roomId} - ${room.currentTime}s - ${room.isPlaying ? 'Oynatılıyor' : 'Durduruldu'}`);
         }
     });
 
