@@ -80,11 +80,13 @@
             </div>
 
             <div class="chat-panel">
-                <div class="chat-messages" id="chatMessages" style="display: block !important; visibility: visible !important; opacity: 1 !important; overflow-y: scroll !important; padding: 15px !important; background: #161b22 !important;"></div>
-                <div class="chat-input-wrapper" id="chatInputWrapper" style="display: flex !important; visibility: visible !important;">
-                    <input type="text" id="chatInput" placeholder="Mesaj yaz..." maxlength="200">
-                    <button class="btn-send" id="sendMessage">📤</button>
-                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+            </div>
+            
+            <!-- Chat input ayrı bir div olarak (mobilde fixed) -->
+            <div class="chat-input-wrapper" id="chatInputWrapper">
+                <input type="text" id="chatInput" placeholder="Mesaj yaz..." maxlength="200">
+                <button class="btn-send" id="sendMessage">📤</button>
             </div>
         </div>
     </div>
@@ -125,26 +127,42 @@
             try {
                 const chatMessages = document.getElementById('chatMessages');
                 const chatPanel = document.querySelector('.chat-panel');
-                const chatSection = document.querySelector('.chat-section');
                 const chatInputWrapper = document.getElementById('chatInputWrapper');
                 
                 // Chat messages - EN ÖNEMLİSİ - HER ZAMAN GÖRÜNÜR
                 if (chatMessages) {
-                    chatMessages.style.cssText = `
-                        display: block !important;
-                        visibility: visible !important;
-                        opacity: 1 !important;
-                        overflow-y: scroll !important;
-                        -webkit-overflow-scrolling: touch !important;
-                        padding: 15px !important;
-                        padding-bottom: 90px !important;
-                        background: #161b22 !important;
-                        position: relative !important;
-                        z-index: 1 !important;
-                        min-height: 150px !important;
-                        height: 100% !important;
-                        flex: 1 !important;
-                    `;
+                    if (window.innerWidth <= 900) {
+                        // Mobilde absolute position
+                        chatMessages.style.cssText = `
+                            display: block !important;
+                            visibility: visible !important;
+                            opacity: 1 !important;
+                            overflow-y: scroll !important;
+                            -webkit-overflow-scrolling: touch !important;
+                            padding: 15px !important;
+                            padding-bottom: 20px !important;
+                            background: #161b22 !important;
+                            position: absolute !important;
+                            top: 0 !important;
+                            left: 0 !important;
+                            right: 0 !important;
+                            bottom: 0 !important;
+                            z-index: 1 !important;
+                            width: 100% !important;
+                            height: 100% !important;
+                        `;
+                    } else {
+                        // Desktop'ta normal
+                        chatMessages.style.cssText = `
+                            display: block !important;
+                            visibility: visible !important;
+                            opacity: 1 !important;
+                            overflow-y: scroll !important;
+                            padding: 15px !important;
+                            background: #161b22 !important;
+                            flex: 1 !important;
+                        `;
+                    }
                     
                     // İçeriği görünür yap
                     const messages = chatMessages.querySelectorAll('.chat-message');
@@ -155,25 +173,19 @@
                     });
                 }
                 
-                // Mobilde ekstra ayarlar
-                if (window.innerWidth <= 900) {
-                    // Chat section
-                    if (chatSection) {
-                        chatSection.style.height = '40vh';
-                        chatSection.style.minHeight = '40vh';
-                        chatSection.style.maxHeight = '40vh';
-                    }
-                    
-                    // Chat panel
-                    if (chatPanel) {
-                        chatPanel.style.display = 'flex';
-                        chatPanel.style.flexDirection = 'column';
-                        chatPanel.style.height = '100%';
-                        chatPanel.style.overflow = 'hidden';
-                    }
-                    
-                    // Chat input
-                    if (chatInputWrapper) {
+                // Chat panel
+                if (chatPanel && window.innerWidth <= 900) {
+                    chatPanel.style.cssText = `
+                        display: block !important;
+                        position: relative !important;
+                        height: calc(40vh - 200px) !important;
+                        overflow: hidden !important;
+                    `;
+                }
+                
+                // Chat input - mobilde fixed
+                if (chatInputWrapper) {
+                    if (window.innerWidth <= 900) {
                         chatInputWrapper.style.cssText = `
                             display: flex !important;
                             visibility: visible !important;
@@ -186,6 +198,12 @@
                             background: #161b22 !important;
                             z-index: 9999 !important;
                             padding: 15px !important;
+                        `;
+                    } else {
+                        chatInputWrapper.style.cssText = `
+                            display: flex !important;
+                            visibility: visible !important;
+                            opacity: 1 !important;
                         `;
                     }
                 }
@@ -320,9 +338,14 @@
                     document.getElementById('videoUrl').value = data.videoUrl;
                     loadHLSVideo(data.videoUrl);
                     
-                    // Senkronize ol (video yüklendikten sonra)
+                    // Senkronize ol (video yüklendikten sonra) - GÜVENİLİR YÖNTEM
+                    let syncAttempts = 0;
+                    const maxSyncAttempts = 10;
+                    
                     const syncAfterLoad = () => {
-                        if (video.readyState >= 2) { // Yeterli veri yüklendi
+                        syncAttempts++;
+                        
+                        if (video.readyState >= 2 || video.readyState >= 1) { // Yeterli veri yüklendi
                             // Ev sahibinin kaldığı yerden devam et - ÖNEMLİ!
                             if (data.currentTime > 0) {
                                 video.currentTime = data.currentTime;
@@ -353,23 +376,30 @@
                                     }
                                 }
                             }
-                        } else {
-                            // Video henüz yüklenmediyse bekle
-                            video.addEventListener('loadeddata', syncAfterLoad, { once: true });
-                            video.addEventListener('canplay', syncAfterLoad, { once: true });
+                        } else if (syncAttempts < maxSyncAttempts) {
+                            // Video henüz yüklenmediyse tekrar dene
+                            setTimeout(syncAfterLoad, 500);
                         }
                     };
                     
                     // HLS yüklendiğinde de senkronize et
                     if (hls) {
-                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        hls.once(Hls.Events.MANIFEST_PARSED, () => {
+                            console.log('📺 HLS manifest yüklendi, senkronize ediliyor...');
                             setTimeout(syncAfterLoad, 500);
                         });
                     }
                     
+                    // Normal video için event listener'lar
+                    video.addEventListener('loadeddata', syncAfterLoad, { once: true });
+                    video.addEventListener('canplay', syncAfterLoad, { once: true });
+                    video.addEventListener('loadedmetadata', syncAfterLoad, { once: true });
+                    
+                    // Zaman aşımı kontrolleri
                     setTimeout(syncAfterLoad, 500);
                     setTimeout(syncAfterLoad, 1000);
                     setTimeout(syncAfterLoad, 2000);
+                    setTimeout(syncAfterLoad, 3000);
                 } else {
                     // Video yoksa mevcut durumu senkronize et
                     if (data.currentTime > 0) {
@@ -678,27 +708,8 @@
                 return;
             }
             
-            // Container'ı kesinlikle görünür yap
-            container.style.cssText = `
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                overflow-y: scroll !important;
-                -webkit-overflow-scrolling: touch !important;
-                padding: 15px !important;
-                padding-bottom: 90px !important;
-                background: #161b22 !important;
-                position: relative !important;
-                z-index: 1 !important;
-                min-height: 150px !important;
-                height: 100% !important;
-                flex: 1 !important;
-            `;
-            
-            // Mobilde görünürlüğü zorla
-            if (window.innerWidth <= 900) {
-                forceChatVisible();
-            }
+            // Görünürlüğü zorla
+            forceChatVisible();
             
             const isMe = msg.username === username;
             const div = document.createElement('div');
@@ -721,27 +732,8 @@
             const container = document.getElementById('chatMessages');
             if (!container) return;
             
-            // Container'ı kesinlikle görünür yap
-            container.style.cssText = `
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                overflow-y: scroll !important;
-                -webkit-overflow-scrolling: touch !important;
-                padding: 15px !important;
-                padding-bottom: 90px !important;
-                background: #161b22 !important;
-                position: relative !important;
-                z-index: 1 !important;
-                min-height: 150px !important;
-                height: 100% !important;
-                flex: 1 !important;
-            `;
-            
-            // Mobilde görünürlüğü zorla
-            if (window.innerWidth <= 900) {
-                forceChatVisible();
-            }
+            // Görünürlüğü zorla
+            forceChatVisible();
             
             const div = document.createElement('div');
             div.className = 'chat-message system';
@@ -1111,46 +1103,86 @@
 
         // Video durumunu al (arka plandan döndüğünde veya sayfa yenilendiğinde)
         socket.on('video-state', (data) => {
-            if (!isHost && !document.hidden) {
+            if (!isHost) {
+                console.log('📺 Video durumu alındı:', data);
+                
                 // Video URL varsa yükle
-                if (data.videoUrl && (!video.src || video.src !== data.videoUrl)) {
-                    loadHLSVideo(data.videoUrl);
+                if (data.videoUrl) {
+                    const currentUrl = document.getElementById('videoUrl')?.value || '';
+                    if (currentUrl !== data.videoUrl) {
+                        console.log('🔄 Video URL değişti, yükleniyor...');
+                        document.getElementById('videoUrl').value = data.videoUrl;
+                        loadHLSVideo(data.videoUrl);
+                    }
                 }
                 
-                // Mevcut zamanı senkronize et - ÖNEMLİ!
-                if (data.currentTime > 0) {
-                    const timeDiff = Math.abs(video.currentTime - data.currentTime);
-                    if (timeDiff > 1 || video.currentTime === 0) {
-                        video.currentTime = data.currentTime;
-                        console.log('✅ Video durumu senkronize edildi:', data.currentTime, 'saniye');
-                    }
-                }
-
-                // Eğer ev sahibi oynatıyorsa, otomatik oynat
-                if (data.isPlaying && video.paused) {
-                    if (!isHost) {
-                        video.muted = true;
-                    }
-                    video.play().then(() => {
-                        if (!isHost) {
-                            const guestOverlay = document.getElementById('guestControlOverlay');
-                            if (guestOverlay) {
-                                guestOverlay.style.display = 'none';
+                // Video yüklendikten sonra senkronize et - GÜVENİLİR YÖNTEM
+                let syncAttempts = 0;
+                const maxSyncAttempts = 15;
+                
+                const syncVideo = () => {
+                    syncAttempts++;
+                    
+                    if (video.readyState >= 2 || video.readyState >= 1) { // Yeterli veri yüklendi
+                        // Mevcut zamanı senkronize et - ÖNEMLİ!
+                        if (data.currentTime > 0) {
+                            const timeDiff = Math.abs(video.currentTime - data.currentTime);
+                            if (timeDiff > 1 || video.currentTime === 0) {
+                                video.currentTime = data.currentTime;
+                                console.log('✅ Video senkronize edildi:', data.currentTime, 'saniye');
                             }
                         }
-                    }).catch(err => {
-                        console.error('Video oynatma hatası:', err);
+
+                        // Eğer ev sahibi oynatıyorsa, otomatik oynat
+                        if (data.isPlaying) {
+                            if (!isHost) {
+                                video.muted = true;
+                            }
+                            video.play().then(() => {
+                                console.log('▶️ Video oynatıldı');
+                                if (!isHost) {
+                                    const guestOverlay = document.getElementById('guestControlOverlay');
+                                    if (guestOverlay) {
+                                        guestOverlay.style.display = 'none';
+                                    }
+                                }
+                            }).catch(err => {
+                                console.error('❌ Video oynatma hatası:', err);
+                            });
+                        } else {
+                            video.pause();
+                            if (!isHost) {
+                                const guestOverlay = document.getElementById('guestControlOverlay');
+                                if (guestOverlay) {
+                                    guestOverlay.style.display = 'flex';
+                                }
+                            }
+                        }
+                    } else if (syncAttempts < maxSyncAttempts) {
+                        // Video henüz yüklenmediyse tekrar dene
+                        setTimeout(syncVideo, 300);
+                    }
+                };
+                
+                // HLS yüklendiğinde senkronize et
+                if (hls) {
+                    hls.once(Hls.Events.MANIFEST_PARSED, () => {
+                        console.log('📺 HLS manifest yüklendi (video-state), senkronize ediliyor...');
+                        setTimeout(syncVideo, 500);
                     });
                 }
-            }
-        });
-        
-        // Sayfa yüklendiğinde video durumunu al
-        socket.on('connect', () => {
-            if (!isHost) {
-                setTimeout(() => {
-                    socket.emit('get-video-state', { roomId });
-                }, 500);
+                
+                // Normal video için event listener'lar
+                video.addEventListener('loadeddata', syncVideo, { once: true });
+                video.addEventListener('canplay', syncVideo, { once: true });
+                video.addEventListener('loadedmetadata', syncVideo, { once: true });
+                
+                // Zaman aşımı kontrolleri
+                setTimeout(syncVideo, 500);
+                setTimeout(syncVideo, 1000);
+                setTimeout(syncVideo, 2000);
+                setTimeout(syncVideo, 3000);
+                setTimeout(syncVideo, 4000);
             }
         });
     </script>
